@@ -1,8 +1,8 @@
 {
-  "name": "horizon",
-  "version": "1.0.0",
+  "name": "midi-horizon",
+  "version": "0.0.1",
   "description": "The sound of the horizon",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "mocha src/**/*.spec.js"
   },
