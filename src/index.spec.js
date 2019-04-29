@@ -20,12 +20,13 @@ describe('horizon', () => {
     describe('resize', () => {
         const h = new Horizon({
             input: './test/london.jpg',
-            x: 100
+            x: 100,
+            velocityRange: 10,
+            minVelocity: 1
         });
 
         it('should resize input image', async () => {
             await h.load();
-
             expect(h.img.bitmap.width).to.equal(h.staveX, 'x');
             expect(h.img.bitmap.height).to.equal(h.staveY, 'y');
         }).timeout(60 * 1000 * 2);
