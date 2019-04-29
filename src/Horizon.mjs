@@ -1,3 +1,4 @@
+const path = require('path');
 const fs = require('fs');
 const Jimp = require('jimp');
 const MidiWriter = require('midi-writer-js');
@@ -6,7 +7,9 @@ const SCALES = {
     pentatonic: ["A", "C", "D", "E", "G"]
 };
 
-const gmErrHandler = (...args) => console.error(args);
+const MOD_SUFFIX = '_tmp.png';
+const OUR_MOD = new RegExp(MOD_SUFFIX + '$');
+const WANTED_FILES = /\.(jpg|jpeg|png)$/i;
 
 module.exports = class Horizon {
     /**
@@ -22,21 +25,69 @@ module.exports = class Horizon {
      * @param opts.minVelocity {number=0} Ignore pixels below this intensity (range 0-100)
      */
     constructor(opts = {}) {
+        this.contrast = 0.5;
+        this.transposeOctave = 2;
+        this.input = opts.input;
         this.minVelocity = opts.minVelocity || 10;
         this.octaves = opts.octaves || 7;
         this.scale = SCALES[opts.scale || 'pentatonic'];
         this.staveX = opts.x || null;
         this.staveY = this.octaves * this.scale.length;
-        this.outputMidi = opts.outputMidi || opts.input;
-        this.outputMidi = this.outputMidi.replace(/\.mid$/);
-        this.input = opts.input;
-        this.outputImgPath = this.input + '_tmp.png';
+        this.outputImgPath = this.input + MOD_SUFFIX;
         this.timeFactor = opts.timeFactor || 25;
-        this.contrast = 0.5;
+        this.outputMidi = opts.outputMidi || opts.input;
+
+        //if (fs.existsSync(this.outputImgPath)){
+        //    fs.unlinkSync(this.outputImgPath);
+        //}
+        // if (fs.existsSync(this.outputMidi)){
+        //     fs.unlinkSync(this.outputMidi);
+        // }
+        this.outputMidi = this.outputMidi.replace(/\.mid$/);
 
         if (!fs.existsSync(this.input)) {
             throw new TypeError('input file does not exist at ' + this.input);
         }
+    }
+
+    static async doDir(options = {}) {
+        const paths = await Horizon.prepareDir(options);
+        console.log('paths', paths);
+
+        paths.forEach( h => {
+            console.log(h.input);
+            h.linear();
+            h.save();
+            console.log(h.input, 'ok');
+        });
+        return paths;
+    }
+
+    static async prepareDir(options = {}) {
+        const donePaths = [];
+        const dir = options.input;
+
+        if (!options.input || !fs.existsSync(options.input)) {
+            throw new Error('Supply "input" arg as dir of files to parse.');
+        }
+
+        await fs.readdirSync(
+            options.input,
+            { withFileTypes: true }
+        ).forEach(async (entry) => {
+            if (entry.isFile() &&
+                entry.name.match(WANTED_FILES) &&
+                !entry.name.match(OUR_MOD)
+            ) {
+                const h = new Horizon({
+                    ...options,
+                    input: path.resolve(dir + '/' + entry.name)
+                });
+                await h.prepare();
+                donePaths.push(h);
+            }
+        });
+        return donePaths;
     }
 
     async prepare() {
@@ -48,7 +99,6 @@ module.exports = class Horizon {
         this.px = [...new Array(this.staveX)].map(x => new Array(this.staveY));
 
         await this.img
-            .flip(false, true)
             .contrast(this.contrast)
             .greyscale()
             .resize(this.staveX * 2, this.staveY * 2, Jimp.RESIZE_NEAREST_NEIGHBOR)
@@ -63,8 +113,9 @@ module.exports = class Horizon {
 
     async getData() {
         for (let x = 0; x < this.staveX; x++) {
+            // for (let y = 0; y < this.staveY; y++) {
             for (let y = 0; y < this.staveY; y++) {
-                this.px[x][y] = Jimp.intToRGBA(
+                this.px[x][this.staveY - y] = Jimp.intToRGBA(
                     this.img.getPixelColor(x, y)
                 ).r;
                 // throw this.px[x][y];
@@ -83,7 +134,7 @@ module.exports = class Horizon {
                 const velocity = (this.px[x][y] / 255) * 100;
                 if (velocity > this.minVelocity) {
                     const pitch = y % this.scale.length;
-                    const octave = Math.floor(y / this.scale.length) + 1;
+                    const octave = Math.floor(y / this.scale.length) + this.transposeOctave;
                     this.track.addEvent(
                         new MidiWriter.NoteEvent({
                             pitch: this.scale[pitch] + octave,
@@ -104,3 +155,4 @@ module.exports = class Horizon {
         return this.outputMidi + '.mid';
     }
 }
+

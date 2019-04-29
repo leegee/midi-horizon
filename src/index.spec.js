@@ -17,7 +17,7 @@ describe('horizon', () => {
         });
     });
 
-    describe('resize', () => {
+    xdescribe('resize', () => {
         const h = new Horizon({
             input: './test/london.jpg',
             x: 1000
@@ -53,4 +53,27 @@ describe('horizon', () => {
             ).to.be.true;
         });
     });
+
+    describe('Horizon.prepareDir', () => {
+        it('runs', async () => {
+            const horizons = await Horizon.prepareDir({
+                input: './test/',
+            });
+            console.log('objs', horizons);
+            expect(horizons).to.be.an.instanceOf(Array);
+            expect(horizons).to.have.length.greaterThan(0);
+        });
+    });
+
+    xdescribe('Horizon.doDir', () => {
+        it('runs', async () => {
+            const horizons = await Horizon.doDir({
+                input: './test/',
+            });
+            console.log('objs', horizons);
+            expect(horizons).to.be.an.instanceOf(Array);
+            expect(horizons).to.have.length.greaterThan(0);
+        });
+    })
+
 });
