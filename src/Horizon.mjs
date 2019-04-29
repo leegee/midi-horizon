@@ -111,18 +111,15 @@ module.exports = class Horizon {
 
     async getData() {
         for (let x = 0; x < this.staveX; x++) {
-            // for (let y = 0; y < this.staveY; y++) {
             for (let y = 0; y < this.staveY; y++) {
                 this.px[x][this.staveY - y] = Jimp.intToRGBA(
                     this.img.getPixelColor(x, y)
                 ).r;
-                // throw this.px[x][y];
             }
         }
     }
 
     linear() {
-        // this.tracks = new Array(this.staveX).fill(new MidiWriter.Track());
         this.track = new MidiWriter.Track();
 
         for (let x = 0; x < this.staveX; x++) {
