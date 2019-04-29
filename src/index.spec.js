@@ -24,7 +24,7 @@ describe('horizon', () => {
         });
 
         it('should resize input image', async () => {
-            await h.prepare();
+            await h.load();
 
             expect(h.img.bitmap.width).to.equal(h.staveX, 'x');
             expect(h.img.bitmap.height).to.equal(h.staveY, 'y');

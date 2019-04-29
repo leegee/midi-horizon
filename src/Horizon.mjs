@@ -85,7 +85,7 @@ module.exports = class Horizon {
                     ...options,
                     input: path.resolve(dir + '/' + entry.name)
                 });
-                pendingHorizons.push(h.prepare());
+                pendingHorizons.push(h.load());
                 createdHorizons.push(h);
             }
         });
@@ -93,7 +93,7 @@ module.exports = class Horizon {
         return createdHorizons;
     }
 
-    async prepare() {
+    async load() {
         this.img = await Jimp.read(this.input);
         if (this.staveX === null) {
             this.staveX = this.img.bitmap.width;
