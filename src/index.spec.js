@@ -20,7 +20,7 @@ describe('horizon', () => {
     describe('resize', () => {
         const h = new Horizon({
             input: './test/london.jpg',
-            x: 100
+            x: 1000
         });
 
         it('should resize input image', async () => {
@@ -41,11 +41,11 @@ describe('horizon', () => {
         });
 
         it('should produce MIDI data', () => {
-            h.createMIDI();
+            h.linear();
         });
 
         it('should save a .mid file', () => {
-            const savedAt = h.saveMIDI();
+            const savedAt = h.save();
             console.log(savedAt);
             expect(
                 fs.existsSync(

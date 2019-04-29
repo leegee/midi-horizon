@@ -14,15 +14,15 @@ module.exports = class Horizon {
      * @param opts {Object} options
      * @param opts.input {string} Path to input image file.
      * @param opts.outputMidi {string} Path to output file - defaults in input path with a suffix of `.mid`
-     * @param opts.minVelocity {number=0} Ignore pixels below this intensity
      * @param opts.octaves {number=7} Number of octaves to use
      * @param opts.scale {string=pentatonic} Invariable atm
      * @param opts.x  {number?} Number of time slots (beats?)
      * @param opts.timeFactor {number} Multiplier for MIDI ticks.
      * @param opts.contrast {number} Range 0 - 1;
+     * @param opts.minVelocity {number=0} Ignore pixels below this intensity (range 0-100)
      */
     constructor(opts = {}) {
-        this.minVelocity = opts.minVelocity || 0;
+        this.minVelocity = opts.minVelocity || 10;
         this.octaves = opts.octaves || 7;
         this.scale = SCALES[opts.scale || 'pentatonic'];
         this.staveX = opts.x || null;
@@ -48,6 +48,7 @@ module.exports = class Horizon {
         this.px = [...new Array(this.staveX)].map(x => new Array(this.staveY));
 
         await this.img
+            .flip(false, true)
             .contrast(this.contrast)
             .greyscale()
             .resize(this.staveX * 2, this.staveY * 2, Jimp.RESIZE_NEAREST_NEIGHBOR)
@@ -66,11 +67,12 @@ module.exports = class Horizon {
                 this.px[x][y] = Jimp.intToRGBA(
                     this.img.getPixelColor(x, y)
                 ).r;
+                // throw this.px[x][y];
             }
         }
     }
 
-    createMIDI() {
+    linear() {
         // this.tracks = new Array(this.staveX).fill(new MidiWriter.Track());
         this.track = new MidiWriter.Track();
 
@@ -96,7 +98,7 @@ module.exports = class Horizon {
         }
     }
 
-    saveMIDI() {
+    save() {
         const write = new MidiWriter.Writer(this.track);
         write.saveMIDI(this.outputMidi);
         return this.outputMidi + '.mid';
