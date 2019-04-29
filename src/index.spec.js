@@ -28,7 +28,7 @@ describe('horizon', () => {
 
             expect(h.img.bitmap.width).to.equal(h.staveX, 'x');
             expect(h.img.bitmap.height).to.equal(h.staveY, 'y');
-        });
+        }).timeout(60 * 1000 * 2);
 
         it('should get image data', async () => {
             await h.getData();
@@ -47,15 +47,14 @@ describe('horizon', () => {
         it('should save a .mid file', () => {
             const savedAt = h.save();
             expect(
-                fs.existsSync(
-                    path.resolve(savedAt))
+                fs.existsSync(path.resolve(savedAt))
             ).to.be.true;
         });
     });
 
-    describe('Horizon.prepareDir', () => {
+    describe('Horizon.dir2horizons', () => {
         it('runs', async () => {
-            const horizons = await Horizon.prepareDir({
+            const horizons = await Horizon.dir2horizons({
                 input: './test',
             });
             expect(horizons).to.be.an.instanceOf(Array);
@@ -70,7 +69,13 @@ describe('horizon', () => {
             });
             expect(horizons).to.be.an.instanceOf(Array);
             expect(horizons).to.have.length.greaterThan(0);
-        });
+            horizons.forEach(h => {
+                expect(
+                    fs.existsSync(path.resolve(h.outputMidi))
+                ).to.be.true;
+
+            });
+        }).timeout(60 * 1000 * 2 * 7);
     })
 
 });

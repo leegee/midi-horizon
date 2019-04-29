@@ -50,17 +50,22 @@ module.exports = class Horizon {
         }
     }
 
-    static async doDir(options = {}) {
-        const paths = await Horizon.prepareDir(options);
-        paths.forEach(h => {
-            h.linear();
-            h.save();
-        });
-        return paths;
+    do() {
+        this.getData();
+        this.linear();
+        this.save();
     }
 
-    static async prepareDir(options = {}) {
-        const donePaths = [];
+    static async doDir(options = {}) {
+        const createdHorizons = await Horizon.dir2horizons(options);
+        createdHorizons.forEach(h => {
+            h.do();
+        });
+        return createdHorizons;
+    }
+
+    static async dir2horizons(options = {}) {
+        const createdHorizons = [];
         const dir = options.input;
         const pendingHorizons = [];
 
@@ -81,11 +86,11 @@ module.exports = class Horizon {
                     input: path.resolve(dir + '/' + entry.name)
                 });
                 pendingHorizons.push(h.prepare());
-                donePaths.push(h);
+                createdHorizons.push(h);
             }
         });
         await Promise.all(pendingHorizons);
-        return donePaths;
+        return createdHorizons;
     }
 
     async prepare() {
