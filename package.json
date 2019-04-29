@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "jimp": "^0.6.4",
+    "midi-writer-js": "^1.7.1",
     "minimist": "^1.2.0"
   },
   "devDependencies": {
