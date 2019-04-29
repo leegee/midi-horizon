@@ -35,8 +35,9 @@ module.exports = class Horizon {
         await this.img
             .contrast(.1)
             .greyscale()
-            .resize(this.staveX, this.staveY)
+            .resize(this.staveX * 2, this.staveY * 2, Jimp.RESIZE_NEAREST_NEIGHBOR)
             .autocrop(.1, false)
+            .resize(this.staveX, this.staveY, Jimp.RESIZE_NEAREST_NEIGHBOR)
             .write(this.outputPath);
     };
 

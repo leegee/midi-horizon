@@ -22,13 +22,16 @@ describe('horizon', () => {
             });
             await h.prepare();
 
+
+            console.log(h.img.bitmap.width, h.staveX);
+            console.log(h.img.bitmap.height, h.staveY);
+
             
             expect(h.img.bitmap.width).to.equal(h.staveX, 'x');
             expect(h.img.bitmap.height).to.equal(h.staveY, 'y');
 
             await h.getData();
 
-            console.log(data);
             for (let x = 0; x < this.staveX; x++) {
                 for (let y = 0; y < this.staveY; y++) {
                     expect(h.px[x][y]).not.to.be.undefined;
