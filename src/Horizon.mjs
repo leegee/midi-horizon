@@ -138,22 +138,45 @@ module.exports = class Horizon {
                     this.notes[x][y] = {
                         pitch: this.scale[pitch] + octave,
                         velocity: velocity,
-                        duration: 'T' + this.timeFactor,
+                        duration: 1,
                         startTick: start
                     };
                 }
             }
         }
+
+        // Proc durations: sustain notes of same pitch and velocity
+        for (let y = 0; y < this.staveY; y++) {
+            for (let x = 0; x < this.staveX; x++) {
+                // Search along x for same notes, and extend the first
+                const startX = x;
+                while (x < this.staveX - 1 &&
+                    this.notes[x][y] && this.notes[x + 1][y] &&
+                    this._sameNote(this.notes[x][y], this.notes[x + 1][y])
+                ) {
+                    this.notes[startX][y].duration += 1;
+                    if (x > startX) {
+                        delete this.notes[x][y];
+                    }
+                    x++;
+                }
+            }
+        }
+    }
+
+    _sameNote(a, b) {
+        return a.pitch === b.pitch && a.velocity === b.velocity;
     }
 
     save() {
         this.track = new MidiWriter.Track();
-
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
-                if (this.note[x][y]) {
+                if (this.notes[x][y]) {
+                    this.notes[x][y].duration = 'T' +
+                        (this.timeFactor * this.notes[x][y].duration);
                     this.track.addEvent(
-                        new MidiWriter.NoteEvent(this.note[x][y])
+                        new MidiWriter.NoteEvent(this.notes[x][y])
                     );
                 }
             }

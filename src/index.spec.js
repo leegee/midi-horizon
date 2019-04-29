@@ -20,7 +20,7 @@ describe('horizon', () => {
     describe('resize', () => {
         const h = new Horizon({
             input: './test/london.jpg',
-            x: 10
+            x: 100
         });
 
         it('should resize input image', async () => {
@@ -52,7 +52,7 @@ describe('horizon', () => {
         });
     });
 
-    xdescribe('Horizon.dir2horizons', () => {
+    describe('Horizon.dir2horizons', () => {
         it('runs', async () => {
             const horizons = await Horizon.dir2horizons({
                 input: './test',
@@ -62,7 +62,7 @@ describe('horizon', () => {
         });
     });
 
-    xdescribe('Horizon.doDir', () => {
+    describe('Horizon.doDir', () => {
         it('runs', async () => {
             const horizons = await Horizon.doDir({
                 input: './test',
