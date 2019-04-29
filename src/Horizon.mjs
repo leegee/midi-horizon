@@ -125,7 +125,7 @@ module.exports = class Horizon {
     }
 
     linear() {
-        this.track = new MidiWriter.Track();
+        this.notes = [...new Array(this.staveX)].map(x => new Array(this.staveY));
 
         for (let x = 0; x < this.staveX; x++) {
             const start = (x + 1) * this.timeFactor;
@@ -135,21 +135,30 @@ module.exports = class Horizon {
                 if (velocity > this.minVelocity) {
                     const pitch = y % this.scale.length;
                     const octave = Math.floor(y / this.scale.length) + this.transposeOctave;
-                    this.track.addEvent(
-                        new MidiWriter.NoteEvent({
-                            pitch: this.scale[pitch] + octave,
-                            velocity: velocity,
-                            duration: 'T' + this.timeFactor,
-                            startTick: start
-                        })
-                    );
-
+                    this.notes[x][y] = {
+                        pitch: this.scale[pitch] + octave,
+                        velocity: velocity,
+                        duration: 'T' + this.timeFactor,
+                        startTick: start
+                    };
                 }
             }
         }
     }
 
     save() {
+        this.track = new MidiWriter.Track();
+
+        for (let x = 0; x < this.staveX; x++) {
+            for (let y = 0; y < this.staveY; y++) {
+                if (this.note[x][y]) {
+                    this.track.addEvent(
+                        new MidiWriter.NoteEvent(this.note[x][y])
+                    );
+                }
+            }
+        }
+
         const write = new MidiWriter.Writer(this.track);
         write.saveMIDI(this.outputMidi);
         return this.outputMidi + '.mid';

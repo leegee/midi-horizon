@@ -52,7 +52,7 @@ describe('horizon', () => {
         });
     });
 
-    describe('Horizon.dir2horizons', () => {
+    xdescribe('Horizon.dir2horizons', () => {
         it('runs', async () => {
             const horizons = await Horizon.dir2horizons({
                 input: './test',
@@ -62,7 +62,7 @@ describe('horizon', () => {
         });
     });
 
-    describe('Horizon.doDir', () => {
+    xdescribe('Horizon.doDir', () => {
         it('runs', async () => {
             const horizons = await Horizon.doDir({
                 input: './test',
