@@ -31,7 +31,7 @@ describe('horizon', () => {
         }).timeout(60 * 1000 * 2);
 
         it('should get image data', async () => {
-            await h.getData();
+            await h._getPixels();
 
             for (let x = 0; x < this.staveX; x++) {
                 for (let y = 0; y < this.staveY; y++) {
@@ -52,30 +52,31 @@ describe('horizon', () => {
         });
     });
 
-    describe('Horizon.dir2horizons', () => {
-        it('runs', async () => {
-            const horizons = await Horizon.dir2horizons({
-                input: './test',
+    xdescribe('bulk', () => {
+        describe('Horizon.dir2horizons', () => {
+            it('runs', async () => {
+                const horizons = await Horizon.dir2horizons({
+                    input: './test',
+                });
+                expect(horizons).to.be.an.instanceOf(Array);
+                expect(horizons).to.have.length.greaterThan(0);
             });
-            expect(horizons).to.be.an.instanceOf(Array);
-            expect(horizons).to.have.length.greaterThan(0);
         });
+
+        describe('Horizon.doDir', () => {
+            it('runs', async () => {
+                const horizons = await Horizon.doDir({
+                    input: './test',
+                });
+                expect(horizons).to.be.an.instanceOf(Array);
+                expect(horizons).to.have.length.greaterThan(0);
+                horizons.forEach(h => {
+                    expect(
+                        fs.existsSync(path.resolve(h.outputMidi))
+                    ).to.be.true;
+
+                });
+            }).timeout(60 * 1000 * 2 * 7);
+        })
     });
-
-    describe('Horizon.doDir', () => {
-        it('runs', async () => {
-            const horizons = await Horizon.doDir({
-                input: './test',
-            });
-            expect(horizons).to.be.an.instanceOf(Array);
-            expect(horizons).to.have.length.greaterThan(0);
-            horizons.forEach(h => {
-                expect(
-                    fs.existsSync(path.resolve(h.outputMidi))
-                ).to.be.true;
-
-            });
-        }).timeout(60 * 1000 * 2 * 7);
-    })
-
 });

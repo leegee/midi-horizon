@@ -22,6 +22,7 @@ module.exports = class Horizon {
      * @param opts.x  {number?} Number of time slots (beats?)
      * @param opts.timeFactor {number} Multiplier for MIDI ticks.
      * @param opts.contrast {number} Range 0 - 1;
+     * @param opts.velocityRange {number} Scale the pixels from 255 down to limit velocities. Default: 100; Effects note sustain.
      * @param opts.minVelocity {number=0} Ignore pixels below this intensity (range 0-100)
      */
     constructor(opts = {}) {
@@ -30,6 +31,7 @@ module.exports = class Horizon {
         this.input = opts.input;
         this.minVelocity = opts.minVelocity || 10;
         this.octaves = opts.octaves || 7;
+        this.velocityRange = opts.velocityRange || 100;
         this.scale = SCALES[opts.scale || 'pentatonic'];
         this.staveX = opts.x || null;
         this.staveY = this.octaves * this.scale.length;
@@ -51,7 +53,7 @@ module.exports = class Horizon {
     }
 
     do() {
-        this.getData();
+        this._getPixels();
         this.linear();
         this.save();
     }
@@ -114,12 +116,13 @@ module.exports = class Horizon {
         console.assert(this.staveY === this.img.bitmap.height);
     };
 
-    async getData() {
+    async _getPixels() {
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
-                this.px[x][this.staveY - y] = Jimp.intToRGBA(
+                const v = Jimp.intToRGBA(
                     this.img.getPixelColor(x, y)
                 ).r;
+                this.px[x][this.staveY - y] = (v / 255) * this.velocityRange;
             }
         }
     }
@@ -131,7 +134,7 @@ module.exports = class Horizon {
             const start = (x + 1) * this.timeFactor;
 
             for (let y = 0; y < this.staveY; y++) {
-                const velocity = (this.px[x][y] / 255) * 100;
+                const velocity = this.px[x][y];
                 if (velocity > this.minVelocity) {
                     const pitch = y % this.scale.length;
                     const octave = Math.floor(y / this.scale.length) + this.transposeOctave;
