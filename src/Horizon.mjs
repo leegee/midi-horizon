@@ -52,13 +52,9 @@ module.exports = class Horizon {
 
     static async doDir(options = {}) {
         const paths = await Horizon.prepareDir(options);
-        console.log('paths', paths);
-
-        paths.forEach( h => {
-            console.log(h.input);
+        paths.forEach(h => {
             h.linear();
             h.save();
-            console.log(h.input, 'ok');
         });
         return paths;
     }
@@ -66,12 +62,13 @@ module.exports = class Horizon {
     static async prepareDir(options = {}) {
         const donePaths = [];
         const dir = options.input;
+        const pendingHorizons = [];
 
         if (!options.input || !fs.existsSync(options.input)) {
             throw new Error('Supply "input" arg as dir of files to parse.');
         }
 
-        await fs.readdirSync(
+        fs.readdirSync(
             options.input,
             { withFileTypes: true }
         ).forEach(async (entry) => {
@@ -83,10 +80,11 @@ module.exports = class Horizon {
                     ...options,
                     input: path.resolve(dir + '/' + entry.name)
                 });
-                await h.prepare();
+                pendingHorizons.push(h.prepare());
                 donePaths.push(h);
             }
         });
+        await Promise.all(pendingHorizons);
         return donePaths;
     }
 

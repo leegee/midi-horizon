@@ -17,10 +17,10 @@ describe('horizon', () => {
         });
     });
 
-    xdescribe('resize', () => {
+    describe('resize', () => {
         const h = new Horizon({
             input: './test/london.jpg',
-            x: 1000
+            x: 10
         });
 
         it('should resize input image', async () => {
@@ -46,7 +46,6 @@ describe('horizon', () => {
 
         it('should save a .mid file', () => {
             const savedAt = h.save();
-            console.log(savedAt);
             expect(
                 fs.existsSync(
                     path.resolve(savedAt))
@@ -57,20 +56,18 @@ describe('horizon', () => {
     describe('Horizon.prepareDir', () => {
         it('runs', async () => {
             const horizons = await Horizon.prepareDir({
-                input: './test/',
+                input: './test',
             });
-            console.log('objs', horizons);
             expect(horizons).to.be.an.instanceOf(Array);
             expect(horizons).to.have.length.greaterThan(0);
         });
     });
 
-    xdescribe('Horizon.doDir', () => {
+    describe('Horizon.doDir', () => {
         it('runs', async () => {
             const horizons = await Horizon.doDir({
-                input: './test/',
+                input: './test',
             });
-            console.log('objs', horizons);
             expect(horizons).to.be.an.instanceOf(Array);
             expect(horizons).to.have.length.greaterThan(0);
         });
