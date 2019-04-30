@@ -15,32 +15,33 @@ describe('horizon', () => {
             });
             expect(h).to.be.an.instanceOf(Horizon);
         });
+    });
 
-        describe('scales velocity', () => {
-            it('default 127', () => {
-                const h = new Horizon({
-                    input: './test/london.jpg'
-                });
-                expect(h).to.be.an.instanceOf(Horizon);
-                expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(127);
-                expect(h.scaleVelocity(255), 'scaled').to.equal(127);
-                expect(h.scaleVelocity(127.5), 'scaled').to.equal(63);
-            })
-
-            it('at 100', () => {
-                const h = new Horizon({
-                    input: './test/london.jpg',
-                    velocityScaleMax: 100
-                });
-                expect(h).to.be.an.instanceOf(Horizon);
-                expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(100);
-                expect(h.scaleVelocity(255), 'scaled').to.equal(100);
-                expect(h.scaleVelocity(127.5), 'scaled').to.equal(50);
+    describe('scales velocity', () => {
+        it('default 127', () => {
+            const h = new Horizon({
+                input: './test/london.jpg'
             });
+            expect(h).to.be.an.instanceOf(Horizon);
+            expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(127);
+            expect(h.scaleVelocity(255), 'scaled').to.equal(127);
+            expect(h.scaleVelocity(127.5), 'scaled').to.equal(63);
+        })
+
+        it('at 100', () => {
+            const h = new Horizon({
+                input: './test/london.jpg',
+                velocityScaleMax: 100
+            });
+            expect(h).to.be.an.instanceOf(Horizon);
+            expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(100);
+            expect(h.scaleVelocity(255), 'scaled').to.equal(100);
+            expect(h.scaleVelocity(127.5), 'scaled').to.equal(50);
         });
     });
 
-    xdescribe('resize', () => {
+
+    describe('resize', () => {
         const h = new Horizon({
             input: './test/london.jpg',
             x: 100,
@@ -64,20 +65,20 @@ describe('horizon', () => {
             }
         });
 
-        it('should produce MIDI data', () => {
-            h.linear();
+        it('linear should produce MIDI data', () => {
+            h._linear();
         });
 
         it('should save a .mid file', () => {
-            const savedAt = h.save();
+            const savedAt = h._saveAsOne();
             expect(
                 fs.existsSync(path.resolve(savedAt))
             ).to.be.true;
         });
     });
 
-    xdescribe('bulk', () => {
-        describe('Horizon.dir2horizons', () => {
+    describe('static methods', () => {
+        xdescribe('Horizon.dir2horizons', () => {
             it('runs', async () => {
                 const horizons = await Horizon.dir2horizons({
                     input: './test',
@@ -95,9 +96,10 @@ describe('horizon', () => {
                 expect(horizons).to.be.an.instanceOf(Array);
                 expect(horizons).to.have.length.greaterThan(0);
                 horizons.forEach(h => {
+                    console.log('Output ', h.outputMidi);
                     expect(
                         fs.existsSync(path.resolve(h.outputMidi))
-                    ).to.be.true;
+                    ).to.be.ok;
 
                 });
             }).timeout(60 * 1000 * 2 * 7);

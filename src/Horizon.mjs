@@ -21,8 +21,10 @@ module.exports = class Horizon {
      * @param opts.scale {string=pentatonic} Invariable atm
      * @param opts.x  {number?} Number of time slots (beats?)
      * @param opts.timeFactor {number} Multiplier for MIDI ticks.
-     * @param opts.contrast {number} Range 0 - 1;
-     * @param opts.minVelocity {number=0} Ignore pixels below this intensity (range 0-100)
+     * @param opts.contrast {number} Range 0 - 1.
+     * @param opts.cropTolerance {number} Range 0 - 1.
+     * @param opts.velocityScaleMax {number} Scale velocities to smaller ceilings to remove precision/steps.
+     * @param opts.minVelocityPostScale {number=0} Ignore pixels below this intensity (range 0-100)
      */
     constructor(opts = {}) {
         this.contrast = 0.5;
@@ -34,17 +36,17 @@ module.exports = class Horizon {
         this.staveY = this.octaves * this.scale.length;
         this.outputImgPath = this.input + MOD_SUFFIX;
         this.timeFactor = opts.timeFactor || 25;
-        this.outputMidi = opts.outputMidi || opts.input;
-        this.minVelocityPostScale = opts.minVelocity || 2;
+        this.outputMidi = opts.outputMidi || opts.input + '.mid';
+        this.cropTolerance = opts.cropTolerance || 0.2;
         this.velocityScaleMax = opts.velocityScaleMax || 127;
+        this.minVelocityPostScale = opts.minVelocityPostScale || 2;
 
-        //if (fs.existsSync(this.outputImgPath)){
-        //    fs.unlinkSync(this.outputImgPath);
-        //}
-        // if (fs.existsSync(this.outputMidi)){
-        //     fs.unlinkSync(this.outputMidi);
-        // }
-        this.outputMidi = this.outputMidi.replace(/\.mid$/);
+        if (fs.existsSync(this.outputImgPath)) {
+            fs.unlinkSync(this.outputImgPath);
+        }
+        if (fs.existsSync(this.outputMidi)) {
+            fs.unlinkSync(this.outputMidi);
+        }
 
         if (!fs.existsSync(this.input)) {
             throw new TypeError('input file does not exist at ' + this.input);
@@ -89,14 +91,16 @@ module.exports = class Horizon {
     }
 
     scaleVelocity(pixelValue) {
-        console.assert(pixelValue < 256);
+        if (pixelValue > 256) {
+            throw new RangeError('pixelValue ' + pixelValue + ' out of range.');
+        }
         return Math.floor(((pixelValue) / 255) * this.velocityScaleMax);
     }
 
     do() {
         this._getPixels();
-        this.linear();
-        this.save();
+        this._linear();
+        this._save();
     }
 
     async load() {
@@ -111,7 +115,7 @@ module.exports = class Horizon {
             .contrast(this.contrast)
             .greyscale()
             .resize(this.staveX * 2, this.staveY * 2, Jimp.RESIZE_NEAREST_NEIGHBOR)
-            .autocrop(.1, false)
+            .autocrop(this.cropTolerance, false)
             .resize(this.staveX, this.staveY, Jimp.RESIZE_NEAREST_NEIGHBOR)
             .invert()
             .write(this.outputImgPath);
@@ -130,14 +134,13 @@ module.exports = class Horizon {
         }
     }
 
-    linear() {
+    _linear() {
         this.notes = [...new Array(this.staveX)].map(x => new Array(this.staveY));
 
         for (let x = 0; x < this.staveX; x++) {
-            const start = (x + 1) * this.timeFactor;
+            const startTick = x * this.timeFactor;
 
             for (let y = 0; y < this.staveY; y++) {
-                // const velocity = (this.px[x][y] / 255) * 100;
                 const velocity = this.scaleVelocity(this.px[x][y]);
                 if (velocity > this.minVelocityPostScale) {
                     const pitch = y % this.scale.length;
@@ -146,13 +149,32 @@ module.exports = class Horizon {
                         pitch: this.scale[pitch] + octave,
                         velocity: velocity,
                         duration: 1,
-                        startTick: start
+                        startTick: startTick
                     };
                 }
             }
         }
 
-        // Proc durations: sustain notes of same pitch and velocity
+        this._sustainAdjacentNotes();
+        this._getNoteDensities();
+    }
+
+    _getNoteDensities() {
+        this.totalDuration = new Array(this.staveX).fill(0);
+        this.hits = new Array(this.staveX).fill(0);
+
+        for (let y = 0; y < this.staveY; y++) {
+            for (let x = 0; x < this.staveX; x++) {
+                if (this.notes[x][y]) {
+                    this.totalDuration[y] += this.notes[x][y].duration;
+                    this.hits[y]++;
+                }
+            }
+        }
+    }
+
+    // Proc durations: sustain notes of same pitch and velocity
+    _sustainAdjacentNotes() {
         for (let y = 0; y < this.staveY; y++) {
             for (let x = 0; x < this.staveX; x++) {
                 // Search along x for same notes, and extend the first
@@ -175,8 +197,10 @@ module.exports = class Horizon {
         return a.pitch === b.pitch && a.velocity === b.velocity;
     }
 
-    save() {
+    _save() {
         this.track = new MidiWriter.Track();
+        // this.timeFactor
+
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
                 if (this.notes[x][y]) {
@@ -190,8 +214,8 @@ module.exports = class Horizon {
         }
 
         const write = new MidiWriter.Writer(this.track);
-        write.saveMIDI(this.outputMidi);
-        return this.outputMidi + '.mid';
+        write.saveMIDI(this.outputMidi.replace(/\.mid$/, ''));
+        return this.outputMidi;
     }
 }
 
