@@ -105,8 +105,8 @@ describe('horizon', () => {
         });
     });
 
-    xdescribe('static methods', () => {
-        describe('Horizon.dir2horizons', () => {
+    describe('static methods', () => {
+        xdescribe('Horizon.dir2horizons', () => {
             it('runs', async () => {
                 const horizons = await Horizon.dir2horizons({
                     input: './test/images/',
@@ -117,9 +117,26 @@ describe('horizon', () => {
             });
         });
 
-        describe('Horizon.doDir', () => {
+        xdescribe('Horizon.doDir', () => {
             it('runs', async () => {
                 const horizons = await Horizon.doDir({
+                    input: './test/images',
+                    output: './test/output',
+                });
+                expect(horizons).to.be.an.instanceOf(Array);
+                expect(horizons).to.have.length.greaterThan(0);
+                horizons.forEach(h => {
+                    expect(
+                        fs.existsSync(path.resolve(h.outputMidiPath))
+                    ).to.be.ok;
+
+                });
+            }).timeout(60 * 1000 * 2 * 7);
+        });
+
+        describe('Horizon.doDirHighestNotes', () => {
+            it('runs', async () => {
+                const horizons = await Horizon.doDirHighestNotes({
                     input: './test/images',
                     output: './test/output',
                 });

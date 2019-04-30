@@ -40,7 +40,8 @@ module.exports = class Horizon {
         const inputFilename = this.input.match(/([^\/]+)\/?$/);
         this.input = opts.input;
         this.output = opts.output;
-        this.outputImgPath = this.output +'/'+ inputFilename + MOD_SUFFIX;
+        this.outputImgPath = this.output + '/' + inputFilename + MOD_SUFFIX;
+        this.outputMidiPath = this.output + '/' + inputFilename + '.mid';
 
         this.contrast = 0.5;
         this.transposeOctave = 2;
@@ -49,7 +50,6 @@ module.exports = class Horizon {
         this.staveX = opts.x || null;
         this.staveY = this.octaves * this.scale.length;
         this.timeFactor = opts.timeFactor || 25;
-        this.outputMidi = this.output + '/' + inputFilename + '.mid';
         this.cropTolerance = opts.cropTolerance || 0.2;
         this.velocityScaleMax = opts.velocityScaleMax || 127;
         this.minVelocityPostScale = opts.minVelocityPostScale || 2;
@@ -57,9 +57,17 @@ module.exports = class Horizon {
         if (fs.existsSync(this.outputImgPath)) {
             fs.unlinkSync(this.outputImgPath);
         }
-        if (fs.existsSync(this.outputMidi)) {
-            fs.unlinkSync(this.outputMidi);
+        if (fs.existsSync(this.outputMidiPath)) {
+            fs.unlinkSync(this.outputMidiPath);
         }
+    }
+
+    static async doDirHighestNotes(options = {}) {
+        const createdHorizons = await Horizon.dir2horizons(options);
+        createdHorizons.forEach(h => {
+            h.doHighestNotes();
+        });
+        return createdHorizons;
     }
 
     static async doDir(options = {}) {
@@ -112,6 +120,13 @@ module.exports = class Horizon {
         this._getPixels();
         this._linear();
         this._saveAsOneTrack();
+    }
+
+    doHighestNotes() {
+        this._getPixels();
+        this._linear();
+        this._getHighestNotes();
+        this._saveHighestNotes();
     }
 
     async load() {
@@ -242,10 +257,10 @@ module.exports = class Horizon {
         });
 
         const write = new MidiWriter.Writer(this.track);
-        this.outputMidi = this.outputMidi.replace(/\.mid/, '_hi.mid');
-        const path = this.outputMidi.replace(/\.mid$/, '');
+        this.outputMidiPath = this.outputMidiPath.replace(/\.mid/, '_hi.mid');
+        const path = this.outputMidiPath.replace(/\.mid$/, '');
         write.saveMIDI(path);
-        return this.outputMidi;
+        return this.outputMidiPath;
     }
 
     _saveAsOneTrack() {
@@ -262,9 +277,9 @@ module.exports = class Horizon {
         }
 
         const write = new MidiWriter.Writer(this.track);
-        const path = this.outputMidi.replace(/\.mid$/, '');
+        const path = this.outputMidiPath.replace(/\.mid$/, '');
         write.saveMIDI(path);
-        return this.outputMidi;
+        return this.outputMidiPath;
     }
 }
 
