@@ -8,21 +8,31 @@ const expect = chai.expect;
 
 describe('horizon', () => {
 
-    describe('constructor', async () => {
+    describe('basics', async () => {
         it('constructs', () => {
             const h = new Horizon({
                 input: './test/london.jpg'
             });
             expect(h).to.be.an.instanceOf(Horizon);
         });
+
+        it('scales velocity', () => {
+            const h = new Horizon({
+                input: './test/london.jpg',
+                velocityScaleMax: 127
+            });
+            expect(h).to.be.an.instanceOf(Horizon);
+            expect(h.scaleVelocity(255)).to.equal(127);
+        })
+
     });
 
-    describe('resize', () => {
+    xdescribe('resize', () => {
         const h = new Horizon({
             input: './test/london.jpg',
             x: 100,
-            velocityRange: 10,
-            minVelocity: 1
+            velocityScaleMax: 10,
+            minVelocityPostScale: 2
         });
 
         it('should resize input image', async () => {
@@ -78,6 +88,7 @@ describe('horizon', () => {
 
                 });
             }).timeout(60 * 1000 * 2 * 7);
-        })
+        });
     });
+
 });
