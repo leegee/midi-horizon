@@ -100,7 +100,7 @@ module.exports = class Horizon {
     do() {
         this._getPixels();
         this._linear();
-        this._save();
+        this._saveAsOneTrack();
     }
 
     async load() {
@@ -156,7 +156,22 @@ module.exports = class Horizon {
         }
 
         this._sustainAdjacentNotes();
-        this._getNoteDensities();
+        // this._getNoteDensities();
+        this._getMelody();
+    }
+
+    _getMelody() {
+        this.highestNotes = new Array(this.staveX).fill(0);
+
+        for (let x = 0; x < this.staveX; x++) {
+            for (let y = this.staveY; y >= 0; y--) {
+                if (this.notes[x][y] && this.notes[x][y - 1]) {
+                    // Require the note to have another below to avoid noise:
+                    this.highestNotes[x] = this.notes[x][y];
+                    break;
+                }
+            }
+        }
     }
 
     _getNoteDensities() {
@@ -197,15 +212,23 @@ module.exports = class Horizon {
         return a.pitch === b.pitch && a.velocity === b.velocity;
     }
 
-    _save() {
+    _normaliseDuration(x, y) {
+        this.notes[x][y].duration = 'T' + (this.timeFactor * this.notes[x][y].duration);
+    }
+
+    _saveHighestNotes() {
+        console.log(this.highestNotes);
+
+    }
+    
+    _saveAsOneTrack() {
         this.track = new MidiWriter.Track();
         // this.timeFactor
 
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
                 if (this.notes[x][y]) {
-                    this.notes[x][y].duration = 'T' +
-                        (this.timeFactor * this.notes[x][y].duration);
+                    this._normaliseDuration(x, y);
                     this.track.addEvent(
                         new MidiWriter.NoteEvent(this.notes[x][y])
                     );
@@ -214,7 +237,8 @@ module.exports = class Horizon {
         }
 
         const write = new MidiWriter.Writer(this.track);
-        write.saveMIDI(this.outputMidi.replace(/\.mid$/, ''));
+        const path = this.outputMidi.replace(/\.mid$/, '');
+        write.saveMIDI(path);
         return this.outputMidi;
     }
 }

@@ -70,15 +70,16 @@ describe('horizon', () => {
         });
 
         it('should save a .mid file', () => {
-            const savedAt = h._saveAsOne();
+            const savedAt = h._saveAsOneTrack();
             expect(
-                fs.existsSync(path.resolve(savedAt))
+                fs.existsSync(path.resolve(savedAt)),
+                savedAt
             ).to.be.true;
         });
     });
 
     describe('static methods', () => {
-        xdescribe('Horizon.dir2horizons', () => {
+        describe('Horizon.dir2horizons', () => {
             it('runs', async () => {
                 const horizons = await Horizon.dir2horizons({
                     input: './test',
