@@ -1,16 +1,3 @@
 node_modules
 .vscode
-test/london.jpg.mid
-test/london.jpg_tmp.png
-test/berlin.jpg_tmp.png
-test/dubai.jpg.mid
-test/dubai.jpg_tmp.png
-test/er.jpg.mid
-test/er.jpg_tmp.png
-test/la.jpg.mid
-test/la.jpg_tmp.png
-test/leeds.jpg.mid
-test/leeds.jpg_tmp.png
-test/seattle.jpg.mid
-test/seattle.jpg_tmp.png
-test/berlin.jpg.mid
+test/output/*.*

@@ -37,17 +37,18 @@ module.exports = class Horizon {
             throw new TypeError('input file does not exist at ' + this.input);
         }
 
-        this.contrast = 0.5;
-        this.transposeOctave = 2;
+        const inputFilename = this.input.match(/([^\/]+)\/?$/);
         this.input = opts.input;
         this.output = opts.output;
+        this.outputImgPath = this.output +'/'+ inputFilename + MOD_SUFFIX;
+
+        this.contrast = 0.5;
+        this.transposeOctave = 2;
         this.octaves = opts.octaves || 7;
         this.scale = SCALES[opts.scale || 'pentatonic'];
         this.staveX = opts.x || null;
         this.staveY = this.octaves * this.scale.length;
-        this.outputImgPath = this.output + MOD_SUFFIX;
         this.timeFactor = opts.timeFactor || 25;
-        const inputFilename = this.input.match(/([^\/]+)\/?$/);
         this.outputMidi = this.output + '/' + inputFilename + '.mid';
         this.cropTolerance = opts.cropTolerance || 0.2;
         this.velocityScaleMax = opts.velocityScaleMax || 127;

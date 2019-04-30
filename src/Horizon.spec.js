@@ -59,10 +59,10 @@ describe('horizon', () => {
             h._linear();
             h._getHighestNotes();
             h._saveHighestNotes();
-            expect(h.outputMidi).to.match(/_hi/g);
+            expect(h.outputMidiPath).to.match(/_hi/g);
             expect(
-                fs.existsSync(path.resolve(h.outputMidi)),
-                h.outputMidi
+                fs.existsSync(path.resolve(h.outputMidiPath)),
+                h.outputMidiPath
             ).to.be.ok;
         });
     });
@@ -127,7 +127,7 @@ describe('horizon', () => {
                 expect(horizons).to.have.length.greaterThan(0);
                 horizons.forEach(h => {
                     expect(
-                        fs.existsSync(path.resolve(h.outputMidi))
+                        fs.existsSync(path.resolve(h.outputMidiPath))
                     ).to.be.ok;
 
                 });
