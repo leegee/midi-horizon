@@ -36,7 +36,7 @@ module.exports = class Horizon {
         this.timeFactor = opts.timeFactor || 25;
         this.outputMidi = opts.outputMidi || opts.input;
         this.minVelocityPostScale = opts.minVelocity || 2;
-        this.velocityScaleMax = 100;
+        this.velocityScaleMax = opts.velocityScaleMax || 127;
 
         //if (fs.existsSync(this.outputImgPath)){
         //    fs.unlinkSync(this.outputImgPath);
@@ -89,7 +89,8 @@ module.exports = class Horizon {
     }
 
     scaleVelocity(pixelValue) {
-        return this.velocityScaleMax * 127 / pixelValue;
+        console.assert(pixelValue < 256);
+        return Math.floor(((pixelValue) / 255) * this.velocityScaleMax);
     }
 
     do() {
@@ -136,7 +137,8 @@ module.exports = class Horizon {
             const start = (x + 1) * this.timeFactor;
 
             for (let y = 0; y < this.staveY; y++) {
-                const velocity = (this.px[x][y] / 255) * 100;
+                // const velocity = (this.px[x][y] / 255) * 100;
+                const velocity = this.scaleVelocity(this.px[x][y]);
                 if (velocity > this.minVelocityPostScale) {
                     const pitch = y % this.scale.length;
                     const octave = Math.floor(y / this.scale.length) + this.transposeOctave;

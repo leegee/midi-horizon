@@ -8,7 +8,7 @@ const expect = chai.expect;
 
 describe('horizon', () => {
 
-    describe('basics', async () => {
+    describe('basics', () => {
         it('constructs', () => {
             const h = new Horizon({
                 input: './test/london.jpg'
@@ -16,15 +16,28 @@ describe('horizon', () => {
             expect(h).to.be.an.instanceOf(Horizon);
         });
 
-        it('scales velocity', () => {
-            const h = new Horizon({
-                input: './test/london.jpg',
-                velocityScaleMax: 127
-            });
-            expect(h).to.be.an.instanceOf(Horizon);
-            expect(h.scaleVelocity(255)).to.equal(127);
-        })
+        describe('scales velocity', () => {
+            it('default 127', () => {
+                const h = new Horizon({
+                    input: './test/london.jpg'
+                });
+                expect(h).to.be.an.instanceOf(Horizon);
+                expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(127);
+                expect(h.scaleVelocity(255), 'scaled').to.equal(127);
+                expect(h.scaleVelocity(127.5), 'scaled').to.equal(63);
+            })
 
+            it('at 100', () => {
+                const h = new Horizon({
+                    input: './test/london.jpg',
+                    velocityScaleMax: 100
+                });
+                expect(h).to.be.an.instanceOf(Horizon);
+                expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(100);
+                expect(h.scaleVelocity(255), 'scaled').to.equal(100);
+                expect(h.scaleVelocity(127.5), 'scaled').to.equal(50);
+            });
+        });
     });
 
     xdescribe('resize', () => {
