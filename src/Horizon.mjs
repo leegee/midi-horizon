@@ -28,7 +28,6 @@ module.exports = class Horizon {
         this.contrast = 0.5;
         this.transposeOctave = 2;
         this.input = opts.input;
-        this.minVelocity = opts.minVelocity || 10;
         this.octaves = opts.octaves || 7;
         this.scale = SCALES[opts.scale || 'pentatonic'];
         this.staveX = opts.x || null;
@@ -36,6 +35,8 @@ module.exports = class Horizon {
         this.outputImgPath = this.input + MOD_SUFFIX;
         this.timeFactor = opts.timeFactor || 25;
         this.outputMidi = opts.outputMidi || opts.input;
+        this.minVelocityPostScale = opts.minVelocity || 2;
+        this.velocityScaleMax = 100;
 
         //if (fs.existsSync(this.outputImgPath)){
         //    fs.unlinkSync(this.outputImgPath);
@@ -48,12 +49,6 @@ module.exports = class Horizon {
         if (!fs.existsSync(this.input)) {
             throw new TypeError('input file does not exist at ' + this.input);
         }
-    }
-
-    do() {
-        this._getPixels();
-        this.linear();
-        this.save();
     }
 
     static async doDir(options = {}) {
@@ -91,6 +86,16 @@ module.exports = class Horizon {
         });
         await Promise.all(pendingHorizons);
         return createdHorizons;
+    }
+
+    scaleVelocity(pixelValue) {
+        return this.velocityScaleMax * 127 / pixelValue;
+    }
+
+    do() {
+        this._getPixels();
+        this.linear();
+        this.save();
     }
 
     async load() {
@@ -132,7 +137,7 @@ module.exports = class Horizon {
 
             for (let y = 0; y < this.staveY; y++) {
                 const velocity = (this.px[x][y] / 255) * 100;
-                if (velocity > this.minVelocity) {
+                if (velocity > this.minVelocityPostScale) {
                     const pitch = y % this.scale.length;
                     const octave = Math.floor(y / this.scale.length) + this.transposeOctave;
                     this.notes[x][y] = {
