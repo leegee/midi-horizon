@@ -11,7 +11,8 @@ describe('horizon', () => {
     describe('basics', () => {
         it('constructs', () => {
             const h = new Horizon({
-                input: './test/london.jpg'
+                input: './test/images/london.jpg',
+                output: './test/output/'
             });
             expect(h).to.be.an.instanceOf(Horizon);
         });
@@ -20,7 +21,8 @@ describe('horizon', () => {
     describe('scales velocity', () => {
         it('default 127', () => {
             const h = new Horizon({
-                input: './test/london.jpg'
+                input: './test/images/london.jpg',
+                output: './test/output/'
             });
             expect(h).to.be.an.instanceOf(Horizon);
             expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(127);
@@ -30,7 +32,8 @@ describe('horizon', () => {
 
         it('at 100', () => {
             const h = new Horizon({
-                input: './test/london.jpg',
+                input: './test/images/london.jpg',
+                output: './test/output/',
                 velocityScaleMax: 100
             });
             expect(h).to.be.an.instanceOf(Horizon);
@@ -40,10 +43,34 @@ describe('horizon', () => {
         });
     });
 
-
-    describe('resize', () => {
+    describe('highest notes', () => {
         const h = new Horizon({
-            input: './test/london.jpg',
+            input: './test/images/london.jpg',
+            output: './test/output/',
+            x: 100,
+            velocityScaleMax: 10,
+            minVelocityPostScale: 2
+        });
+
+
+        it('should extract and save', async () => {
+            await h.load();
+            h._getPixels();
+            h._linear();
+            h._getHighestNotes();
+            h._saveHighestNotes();
+            expect(h.outputMidi).to.match(/_hi/g);
+            expect(
+                fs.existsSync(path.resolve(h.outputMidi)),
+                h.outputMidi
+            ).to.be.ok;
+        });
+    });
+
+    xdescribe('resize', () => {
+        const h = new Horizon({
+            input: './test/images/london.jpg',
+            output: './test/output/',
             x: 100,
             velocityScaleMax: 10,
             minVelocityPostScale: 2
@@ -78,11 +105,12 @@ describe('horizon', () => {
         });
     });
 
-    describe('static methods', () => {
+    xdescribe('static methods', () => {
         describe('Horizon.dir2horizons', () => {
             it('runs', async () => {
                 const horizons = await Horizon.dir2horizons({
-                    input: './test',
+                    input: './test/images/',
+                    output: './test/output/',
                 });
                 expect(horizons).to.be.an.instanceOf(Array);
                 expect(horizons).to.have.length.greaterThan(0);
@@ -92,12 +120,12 @@ describe('horizon', () => {
         describe('Horizon.doDir', () => {
             it('runs', async () => {
                 const horizons = await Horizon.doDir({
-                    input: './test',
+                    input: './test/images',
+                    output: './test/output',
                 });
                 expect(horizons).to.be.an.instanceOf(Array);
                 expect(horizons).to.have.length.greaterThan(0);
                 horizons.forEach(h => {
-                    console.log('Output ', h.outputMidi);
                     expect(
                         fs.existsSync(path.resolve(h.outputMidi))
                     ).to.be.ok;

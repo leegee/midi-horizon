@@ -16,7 +16,7 @@ module.exports = class Horizon {
      * 
      * @param opts {Object} options
      * @param opts.input {string} Path to input image file.
-     * @param opts.outputMidi {string} Path to output file - defaults in input path with a suffix of `.mid`
+     * @param opts.output {string} Path to output directory 
      * @param opts.octaves {number=7} Number of octaves to use
      * @param opts.scale {string=pentatonic} Invariable atm
      * @param opts.x  {number?} Number of time slots (beats?)
@@ -27,6 +27,16 @@ module.exports = class Horizon {
      * @param opts.minVelocityPostScale {number=0} Ignore pixels below this intensity (range 0-100)
      */
     constructor(opts = {}) {
+        if (!opts.output) {
+            throw new TypeError('output dir not specified.');
+        }
+        if (!opts.input) {
+            throw new TypeError('input file not specified.');
+        }
+        if (!fs.existsSync(opts.input)) {
+            throw new TypeError('input file does not exist at ' + this.input);
+        }
+
         this.contrast = 0.5;
         this.transposeOctave = 2;
         this.input = opts.input;
@@ -34,9 +44,10 @@ module.exports = class Horizon {
         this.scale = SCALES[opts.scale || 'pentatonic'];
         this.staveX = opts.x || null;
         this.staveY = this.octaves * this.scale.length;
-        this.outputImgPath = this.input + MOD_SUFFIX;
+        this.outputImgPath = this.output + MOD_SUFFIX;
         this.timeFactor = opts.timeFactor || 25;
-        this.outputMidi = opts.outputMidi || opts.input + '.mid';
+        const inputFilename = this.input.match(/([^\/]+)\/?$/);
+        this.outputMidi = opts.output + '/' + inputFilename + '.mid';
         this.cropTolerance = opts.cropTolerance || 0.2;
         this.velocityScaleMax = opts.velocityScaleMax || 127;
         this.minVelocityPostScale = opts.minVelocityPostScale || 2;
@@ -46,10 +57,6 @@ module.exports = class Horizon {
         }
         if (fs.existsSync(this.outputMidi)) {
             fs.unlinkSync(this.outputMidi);
-        }
-
-        if (!fs.existsSync(this.input)) {
-            throw new TypeError('input file does not exist at ' + this.input);
         }
     }
 
@@ -72,6 +79,7 @@ module.exports = class Horizon {
 
         fs.readdirSync(
             options.input,
+            options.output,
             { withFileTypes: true }
         ).forEach(async (entry) => {
             if (entry.isFile() &&
@@ -80,7 +88,8 @@ module.exports = class Horizon {
             ) {
                 const h = new Horizon({
                     ...options,
-                    input: path.resolve(dir + '/' + entry.name)
+                    input: path.resolve(dir + '/' + entry.name),
+                    output: path.resolve(options.output + '/' + entry.name),
                 });
                 pendingHorizons.push(h.load());
                 createdHorizons.push(h);
@@ -124,7 +133,7 @@ module.exports = class Horizon {
         console.assert(this.staveY === this.img.bitmap.height);
     };
 
-    async _getPixels() {
+    _getPixels() {
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
                 this.px[x][this.staveY - y] = Jimp.intToRGBA(
@@ -157,17 +166,16 @@ module.exports = class Horizon {
 
         this._sustainAdjacentNotes();
         // this._getNoteDensities();
-        this._getMelody();
     }
 
-    _getMelody() {
-        this.highestNotes = new Array(this.staveX).fill(0);
+    _getHighestNotes() {
+        this.highestNotes = []
 
         for (let x = 0; x < this.staveX; x++) {
             for (let y = this.staveY; y >= 0; y--) {
                 if (this.notes[x][y] && this.notes[x][y - 1]) {
                     // Require the note to have another below to avoid noise:
-                    this.highestNotes[x] = this.notes[x][y];
+                    this.highestNotes.push(this.notes[x][y]);
                     break;
                 }
             }
@@ -212,23 +220,38 @@ module.exports = class Horizon {
         return a.pitch === b.pitch && a.velocity === b.velocity;
     }
 
-    _normaliseDuration(x, y) {
-        this.notes[x][y].duration = 'T' + (this.timeFactor * this.notes[x][y].duration);
+    _normaliseDuration(note) {
+        note.duration = 'T' + (this.timeFactor * note.duration);
     }
 
     _saveHighestNotes() {
-        console.log(this.highestNotes);
+        this.track = new MidiWriter.Track();
 
+        if (!this.highestNotes || this.highestNotes.length === 0) {
+            throw new Error('No highestNotes to save.');
+        }
+
+        this.track = new MidiWriter.Track();
+        this.highestNotes.forEach(note => {
+            this._normaliseDuration(note);
+            this.track.addEvent(
+                new MidiWriter.NoteEvent(note)
+            );
+        });
+
+        const write = new MidiWriter.Writer(this.track);
+        this.outputMidi = this.outputMidi.replace(/\.mid/, '_hi.mid');
+        const path = this.outputMidi.replace(/\.mid$/, '');
+        write.saveMIDI(path);
+        return this.outputMidi;
     }
-    
+
     _saveAsOneTrack() {
         this.track = new MidiWriter.Track();
-        // this.timeFactor
-
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
                 if (this.notes[x][y]) {
-                    this._normaliseDuration(x, y);
+                    this._normaliseDuration(this.notes[x][y]);
                     this.track.addEvent(
                         new MidiWriter.NoteEvent(this.notes[x][y])
                     );
