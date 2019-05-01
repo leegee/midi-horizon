@@ -8,13 +8,13 @@ const SCALES = {
 };
 
 const MOD_SUFFIX = '_tmp.png';
-const OUR_MOD = new RegExp(MOD_SUFFIX + '$');
-const WANTED_FILES = /\.(jpg|jpeg|png)$/i;
+const OUR_PROCESSED_IMAGE_FILE = new RegExp(MOD_SUFFIX + '$');
+const WANTED_IMAGE_FILES = /\.(jpg|jpeg|png)$/i;
 
 module.exports = class Horizon {
     /**
      * 
-     * @param opts {Object} options
+     * @param options {Object} options
      * @param opts.input {string} Path to input image file.
      * @param opts.output {string} Path to output directory 
      * @param opts.octaves {number=7} Number of octaves to use
@@ -26,33 +26,29 @@ module.exports = class Horizon {
      * @param opts.velocityScaleMax {number} Scale velocities to smaller ceilings to remove precision/steps.
      * @param opts.minVelocityPostScale {number=0} Ignore pixels below this intensity (range 0-100)
      */
-    constructor(opts = {}) {
-        if (!opts.output) {
+    constructor(options = {}) {
+        if (!options.output) {
             throw new TypeError('output dir not specified.');
         }
-        if (!opts.input) {
+        if (!options.input) {
             throw new TypeError('input file not specified.');
         }
-        if (!fs.existsSync(opts.input)) {
+        if (!fs.existsSync(options.input)) {
             throw new TypeError('input file does not exist at ' + this.input);
         }
 
-        const inputFilename = this.input.match(/([^\/]+)\/?$/);
-        this.input = opts.input;
-        this.output = opts.output;
-        this.outputImgPath = this.output + '/' + inputFilename + MOD_SUFFIX;
-        this.outputMidiPath = this.output + '/' + inputFilename + '.mid';
+        this._setPaths(options);
 
         this.contrast = 0.5;
         this.transposeOctave = 2;
-        this.octaves = opts.octaves || 7;
-        this.scale = SCALES[opts.scale || 'pentatonic'];
-        this.staveX = opts.x || null;
+        this.octaves = options.octaves || 7;
+        this.scale = SCALES[options.scale || 'pentatonic'];
+        this.staveX = options.x || null;
         this.staveY = this.octaves * this.scale.length;
-        this.timeFactor = opts.timeFactor || 25;
-        this.cropTolerance = opts.cropTolerance || 0.2;
-        this.velocityScaleMax = opts.velocityScaleMax || 127;
-        this.minVelocityPostScale = opts.minVelocityPostScale || 2;
+        this.timeFactor = options.timeFactor || 25;
+        this.cropTolerance = options.cropTolerance || 0.2;
+        this.velocityScaleMax = options.velocityScaleMax || 127;
+        this.minVelocityPostScale = options.minVelocityPostScale || 2;
 
         if (fs.existsSync(this.outputImgPath)) {
             fs.unlinkSync(this.outputImgPath);
@@ -62,11 +58,46 @@ module.exports = class Horizon {
         }
     }
 
+    _setPaths(opts) {
+        this.input = path.resolve(opts.input);
+        this.output = path.resolve(opts.output);
+        this._inputFilename = this.input.match(/([^\\\/]+)[\\\/]*$/)[1]; // path.posix.basename(this.input);
+        this._outputDir = this.output.match(/\.\w+$/) === null ? this.output : path.dirname(this.output);
+        this.outputImgPath = path.join(this._outputDir, this._inputFilename + MOD_SUFFIX);
+        this.outputMidiPath = path.join(this._outputDir, this._inputFilename + '.mid');
+    }
+
+    // https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
+    static rgb2hsl(r, g, b) {
+        r /= 255;
+        g /= 255;
+        b /= 255;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h = 0;
+        let s = 0;
+        const l = (max + min) / 2;
+
+        if (max !== min) {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+
+        return [h, s, l];
+    }
+
     static async doDirHighestNotes(options = {}) {
         const createdHorizons = await Horizon.dir2horizons(options);
-        createdHorizons.forEach(h => {
-            h.doHighestNotes();
-        });
+        console.log(createdHorizons);
+        // createdHorizons.forEach(h => {
+        //     h.doHighestNotes();
+        // });
         return createdHorizons;
     }
 
@@ -81,31 +112,28 @@ module.exports = class Horizon {
     static async dir2horizons(options = {}) {
         const createdHorizons = [];
         const dir = options.input;
-        const pendingHorizons = [];
 
-        if (!options.input || !fs.existsSync(options.input)) {
+        if (!dir || !fs.existsSync(dir)) {
             throw new Error('Supply "input" arg as dir of files to parse.');
         }
 
         fs.readdirSync(
-            options.input,
-            options.output,
+            dir,
             { withFileTypes: true }
         ).forEach(async (entry) => {
             if (entry.isFile() &&
-                entry.name.match(WANTED_FILES) &&
-                !entry.name.match(OUR_MOD)
+                entry.name.match(WANTED_IMAGE_FILES) &&
+                !entry.name.match(OUR_PROCESSED_IMAGE_FILE)
             ) {
                 const h = new Horizon({
                     ...options,
                     input: path.resolve(dir + '/' + entry.name),
                     output: path.resolve(options.output + '/' + entry.name),
                 });
-                pendingHorizons.push(h.load());
+                const x = h.load();
                 createdHorizons.push(h);
             }
         });
-        await Promise.all(pendingHorizons);
         return createdHorizons;
     }
 
@@ -242,8 +270,6 @@ module.exports = class Horizon {
     }
 
     _saveHighestNotes() {
-        this.track = new MidiWriter.Track();
-
         if (!this.highestNotes || this.highestNotes.length === 0) {
             throw new Error('No highestNotes to save.');
         }
@@ -257,9 +283,8 @@ module.exports = class Horizon {
         });
 
         const write = new MidiWriter.Writer(this.track);
-        this.outputMidiPath = this.outputMidiPath.replace(/\.mid/, '_hi.mid');
-        const path = this.outputMidiPath.replace(/\.mid$/, '');
-        write.saveMIDI(path);
+        this.outputMidiPath = this.outputMidiPath.replace(/\.mid$/, '_hi.mid');
+        write.saveMIDI(this.outputMidiPath.replace(/\.mid$/, ''));
         return this.outputMidiPath;
     }
 

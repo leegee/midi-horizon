@@ -43,30 +43,6 @@ describe('horizon', () => {
         });
     });
 
-    describe('highest notes', () => {
-        const h = new Horizon({
-            input: './test/images/london.jpg',
-            output: './test/output/',
-            x: 100,
-            velocityScaleMax: 10,
-            minVelocityPostScale: 2
-        });
-
-
-        it('should extract and save', async () => {
-            await h.load();
-            h._getPixels();
-            h._linear();
-            h._getHighestNotes();
-            h._saveHighestNotes();
-            expect(h.outputMidiPath).to.match(/_hi/g);
-            expect(
-                fs.existsSync(path.resolve(h.outputMidiPath)),
-                h.outputMidiPath
-            ).to.be.ok;
-        });
-    });
-
     xdescribe('resize', () => {
         const h = new Horizon({
             input: './test/images/london.jpg',
