@@ -6,17 +6,34 @@ const logger = require('./Logger-test.mjs');
 const expect = chai.expect;
 chai.use(require('chai-fs'));
 
+logger.level = 'trace';
+
 describe('highest notes', () => {
-    it('should extract and save', async () => {
-        const h = new Horizon({
+    let h;
+
+    it('should construct', async () => {
+        h = new Horizon({
             input: './test/images/london.jpg',
             output: './test/output/',
-            logger: logger
+            x: 100,
+            velocityScaleMax: 10,
+            minVelocityPostScale: 2,
+            logger
         });
 
         await h.load();
+
+        expect(h.img.bitmap.width).to.equal(h.staveX);
+        expect(h.img.bitmap.height).to.equal(h.staveY);
+
         h._getPixels();
+        expect(h.px[0][0]).to.be.ok;
         h._linear();
+        expect(h.notes[0][0]).to.be.ok;
+    });
+
+    it('should extract and save', async () => {
+
         h._getHighestNotes();
         h._saveHighestNotes();
 

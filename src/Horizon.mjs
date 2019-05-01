@@ -12,21 +12,25 @@ const SCALES = {
 const MOD_SUFFIX = '_tmp.png';
 const OUR_PROCESSED_IMAGE_FILE = new RegExp(MOD_SUFFIX + '$');
 const WANTED_IMAGE_FILES = /\.(jpg|jpeg|png)$/i;
+const HUE = 0;
+const SATURATION = 1;
+const LIGHTNESS = 2;
 
 module.exports = class Horizon {
     /**
      * 
      * @param options {Object} options
-     * @param opts.input {string} Path to input image file.
-     * @param opts.output {string} Path to output directory 
-     * @param opts.octaves {number=7} Number of octaves to use
-     * @param opts.scale {string=pentatonic} Invariable atm
-     * @param opts.x  {number?} Number of time slots (beats?)
-     * @param opts.timeFactor {number} Multiplier for MIDI ticks.
-     * @param opts.contrast {number} Range 0 - 1.
-     * @param opts.cropTolerance {number} Range 0 - 1.
-     * @param opts.velocityScaleMax {number} Scale velocities to smaller ceilings to remove precision/steps.
-     * @param opts.minVelocityPostScale {number=0} Ignore pixels below this intensity (range 0-100)
+     * @param options.input {string} Path to input image file.
+     * @param options.output {string} Path to output directory 
+     * @param options.octaves {number=7} Number of octaves to use
+     * @param options.scale {string=pentatonic} Invariable atm
+     * @param options.x  {number?} Number of time slots (beats?)
+     * @param options.timeFactor {number} Multiplier for MIDI ticks.
+     * @param options.transposeOctave {number=2} 
+     * @param options.contrast {number=0.5} Range 0 - 1.
+     * @param options.cropTolerance {number} Range 0 - 1.
+     * @param options.velocityScaleMax {number} Scale velocities to smaller ceilings to remove precision/steps.
+     * @param options.minVelocityPostScale {number=0} Ignore pixels below this intensity (range 0-100)
      */
     constructor(options = {}) {
         if (!options.output) {
@@ -44,51 +48,49 @@ module.exports = class Horizon {
         this._setPaths(options);
 
         this.contrast = 0.5;
-        this.transposeOctave = 2;
+        this.transposeOctave = options.transposeOctave || 2;
         this.octaves = options.octaves || 7;
         this.scale = SCALES[options.scale || 'pentatonic'];
         this.staveX = options.x || null;
         this.staveY = this.octaves * this.scale.length;
-        this.timeFactor = options.timeFactor || 25;
+        this.timeFactor = options.timeFactor || 24;
         this.cropTolerance = options.cropTolerance || 0.2;
         this.velocityScaleMax = options.velocityScaleMax || 127;
         this.minVelocityPostScale = options.minVelocityPostScale || 2;
-
-        if (fs.existsSync(this.outputImgPath)) {
-            fs.unlinkSync(this.outputImgPath);
-        }
-        if (fs.existsSync(this.outputMidiPath)) {
-            fs.unlinkSync(this.outputMidiPath);
-        }
     }
 
-    _setPaths(opts) {
-        this.input = path.resolve(opts.input);
-        this.output = path.resolve(opts.output);
+    _setPaths(options) {
+        this.input = path.resolve(options.input);
+        this.output = path.resolve(options.output);
         this._inputFilename = this.input.match(/([^\\\/]+)[\\\/]*$/)[1]; // path.posix.basename(this.input);
         this._outputDir = this.output.match(/\.\w+$/) === null ? this.output : path.dirname(this.output);
         this.outputImgPath = path.join(this._outputDir, this._inputFilename + MOD_SUFFIX);
         this.outputMidiPath = path.join(this._outputDir, this._inputFilename + '.mid');
     }
 
-    // https://stackoverflow.com/questions/2353211/hsl-to-rgb-color-conversion
     static rgb2hsl(r, g, b) {
         r /= 255;
         g /= 255;
         b /= 255;
         const max = Math.max(r, g, b);
         const min = Math.min(r, g, b);
+        const l = (min + max) / 2;
         let h = 0;
         let s = 0;
-        const l = (max + min) / 2;
 
         if (max !== min) {
-            const d = max - min;
-            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            const delta = max - min;
+            s = l >= 0.5 ? delta / (2 - max - min) : delta / (min + max);
             switch (max) {
-                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-                case g: h = (b - r) / d + 2; break;
-                case b: h = (r - g) / d + 4; break;
+                case r:
+                    h = (g - b) / delta + (g < b ? 6 : 0);
+                    break;
+                case g:
+                    h = (b - r) / delta + 2;
+                    break;
+                case b:
+                    h = (r - g) / delta + 4;
+                    break;
             }
             h /= 6;
         }
@@ -171,12 +173,14 @@ module.exports = class Horizon {
         await this.img
             .contrast(this.contrast);
 
-        const contrasted = this.img.clone();
+        this.imgClr = this.img.clone();
 
         await this.img.greyscale();
 
-        await this._resize(this.img);
-        await this._resize(contrasted);
+        await Promise.all([
+            this._resize(this.img),
+            this._resize(this.imgClr)
+        ]);
 
         console.assert(this.staveX === this.img.bitmap.width);
         console.assert(this.staveY === this.img.bitmap.height);
@@ -194,9 +198,11 @@ module.exports = class Horizon {
     _getPixels() {
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
-                this.px[x][this.staveY - y] = Jimp.intToRGBA(
-                    this.img.getPixelColor(x, y)
-                ).r;
+                const rgb = Jimp.intToRGBA(
+                    this.img.getPixelColor(x + 1, y + 1)
+                );
+                this.px[x][this.staveY - 1 - y] = rgb.r;
+                // this.colours[x][this.staveY - y] = Horizon.rgb2hsl(rgb.r, rgb.g, rgb.b)[LIGHTNESS] * 255;
             }
         }
     }
@@ -227,7 +233,8 @@ module.exports = class Horizon {
     }
 
     _getHighestNotes(wantFriends = true) {
-        this.highestNotes = []
+        this.highestNotes = [];
+        this.logger.warn(`Get highest notes, with friends? ${wantFriends}`);
 
         for (let x = 0; x < this.staveX; x++) {
             for (let y = this.staveY; y >= 0; y--) {
@@ -244,7 +251,11 @@ module.exports = class Horizon {
         if (this.highestNotes.length === 0) {
             this.logger.warn('Found no highest notes');
             if (wantFriends) {
+                this.logger.warn('Trying again without asking for friends.');
                 this._getHighestNotes(false);
+            } else {
+                // this.logger.warn(JSON.stringify(this.px));
+                throw new Error('Found no highest notes, even lonely ones.');
             }
         }
     }

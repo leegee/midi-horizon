@@ -54,6 +54,7 @@ describe('general', () => {
         const h = new Horizon({
             input: './test/images/london.jpg',
             output: './test/output/',
+            logger: logger,
             x: 100,
             velocityScaleMax: 10,
             minVelocityPostScale: 2
