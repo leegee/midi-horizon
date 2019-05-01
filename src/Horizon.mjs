@@ -155,6 +155,7 @@ module.exports = class Horizon {
         this._inputFilename = this.input.match(/([^\\\/]+)[\\\/]*$/)[1]; // path.posix.basename(this.input);
         this._outputDir = this.output.match(/\.\w+$/) === null ? this.output : path.dirname(this.output);
         this.outputImgPath = path.join(this._outputDir, this._inputFilename + MOD_SUFFIX);
+        this.outputClrImgPath = path.join(this._outputDir, this._inputFilename + '_clr_' + MOD_SUFFIX);
         this.outputMidiPath = path.join(this._outputDir, this._inputFilename + '.mid');
     }
 
@@ -207,7 +208,7 @@ module.exports = class Horizon {
         await this.img.invert()
             .write(this.outputImgPath);
 
-        await this.colourImage.write(this.outputImgPath);
+        await this.colourImage.write(this.outputClrImgPath);
 
         console.assert(this.staveX === this.img.bitmap.width);
         console.assert(this.staveY === this.img.bitmap.height);
@@ -398,17 +399,17 @@ module.exports = class Horizon {
                         startTick: x * this.timeFactor
                     })
                 );
+                tracks.colours.addEvent(
+                    new MidiWriter.NoteEvent(
+                        {
+                            velocity: this.highestNotes[x].velocity,
+                            duration: 1, // this.highestNotes[x].duration,
+                            pitch: this.colourChords[x],
+                            startTick: x * this.timeFactor
+                        }
+                    )
+                );
             }
-            tracks.colours.addEvent(
-                new MidiWriter.NoteEvent(
-                    {
-                        velocity: this.highestNotes[x].velocity,
-                        duration: 1, // this.highestNotes[x].duration,
-                        pitch: this.colourChords[x],
-                        startTick: x * this.timeFactor
-                    }
-                )
-            );
         }
 
         const write = new MidiWriter.Writer(
@@ -427,8 +428,11 @@ module.exports = class Horizon {
 
         this.colourChords = [];
 
+        let chord;
         for (let x = 0; x < this.staveX; x++) {
-            const chord = this.colour2chord(this.highestNotes[x].colour);
+            if (this.highestNotes[x]) {
+                chord = this.colour2chord(this.highestNotes[x].colour);
+            }
             this.colourChords[x] = Chord.notes(chord).map(
                 note => note + '4'
             );
