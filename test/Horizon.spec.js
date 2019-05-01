@@ -111,22 +111,6 @@ describe('horizon', () => {
             }).timeout(60 * 1000 * 2 * 7);
         });
 
-        describe('Horizon.doDirHighestNotes', () => {
-            it('runs', async () => {
-                const horizons = await Horizon.doDirHighestNotes({
-                    input: './test/images',
-                    output: './test/output',
-                });
-                expect(horizons).to.be.an.instanceOf(Array);
-                expect(horizons).to.have.length.greaterThan(0);
-                horizons.forEach(h => {
-                    expect(
-                        fs.existsSync(h.outputMidiPath)
-                    ).to.be.ok;
-
-                });
-            }).timeout(60 * 1000 * 2 * 7);
-        });
     });
 
 });
