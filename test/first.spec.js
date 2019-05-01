@@ -1,31 +1,37 @@
-const fs = require('fs');
-const path = require('path');
 const chai = require('chai');
 
 const Horizon = require('../src/Horizon.mjs');
 const logger = require('./Logger-test.mjs');
-const expect = chai.expect;
 
-describe('horizon', () => {
+const expect = chai.expect;
+chai.use(require('chai-fs'));
+
+describe('general', () => {
+    const h = new Horizon({
+        input: './test/images/london.jpg',
+        output: './test/output/',
+        logger: logger
+    });
 
     describe('basics', () => {
         it('constructs', () => {
-            const h = new Horizon({
-                input: './test/images/london.jpg',
-                output: './test/output/',
-                logger: logger
-            });
             expect(h).to.be.an.instanceOf(Horizon);
         });
     });
 
+    it('should produce correct paths', () => {
+        expect(h._inputFilename).to.equal('london.jpg');
+        expect(h.outputImgPath, 'img path').to.match(
+            /test[\\\/]output[\\\/]london\.jpg_tmp\.png$/
+        );
+        expect(h.outputMidiPath, 'midi path').to.match(
+            /test[\\\/]output[\\\/]london\.jpg\.mid$/
+        );
+        expect(h._outputDir).to.match(/test[\\\/]output[\\\/]?/);
+    });
+
     describe('scales velocity', () => {
         it('default 127', () => {
-            const h = new Horizon({
-                input: './test/images/london.jpg',
-                output: './test/output/'
-            });
-            expect(h).to.be.an.instanceOf(Horizon);
             expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(127);
             expect(h.scaleVelocity(255), 'scaled').to.equal(127);
             expect(h.scaleVelocity(127.5), 'scaled').to.equal(63);
@@ -74,12 +80,10 @@ describe('horizon', () => {
         });
 
         it('should save a .mid file', () => {
-            const savedAt = h._saveAsOneTrack();
+            h._saveAsOneTrack();
             expect(
-                fs.existsSync(path.resolve(savedAt)),
-                savedAt
-            ).to.be.true;
+                h.outputMidiPath
+            ).to.be.a.file(h.outputMidiPath);
         });
     });
-
 });

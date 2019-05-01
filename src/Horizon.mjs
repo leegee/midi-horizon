@@ -169,17 +169,27 @@ module.exports = class Horizon {
         this.px = [...new Array(this.staveX)].map(x => new Array(this.staveY));
 
         await this.img
-            .contrast(this.contrast)
-            .greyscale()
-            .resize(this.staveX * 2, this.staveY * 2, Jimp.RESIZE_NEAREST_NEIGHBOR)
-            .autocrop(this.cropTolerance, false)
-            .resize(this.staveX, this.staveY, Jimp.RESIZE_NEAREST_NEIGHBOR)
-            .invert()
-            .write(this.outputImgPath);
+            .contrast(this.contrast);
+
+        const contrasted = this.img.clone();
+
+        await this.img.greyscale();
+
+        await this._resize(this.img);
+        await this._resize(contrasted);
 
         console.assert(this.staveX === this.img.bitmap.width);
         console.assert(this.staveY === this.img.bitmap.height);
     };
+
+    _resize(image) {
+        return image.resize(this.staveX * 2, this.staveY * 2, Jimp.RESIZE_NEAREST_NEIGHBOR)
+            .autocrop(this.cropTolerance, false)
+            .resize(this.staveX, this.staveY, Jimp.RESIZE_NEAREST_NEIGHBOR)
+            .invert()
+            .write(this.outputImgPath);
+    }
+
 
     _getPixels() {
         for (let x = 0; x < this.staveX; x++) {
@@ -296,8 +306,9 @@ module.exports = class Horizon {
 
         const write = new MidiWriter.Writer(this.track);
         this.outputMidiPath = this.outputMidiPath.replace(/\.mid$/, '_hi.mid');
-        write.saveMIDI(this.outputMidiPath.replace(/\.mid$/, ''));
-        return this.outputMidiPath;
+        write.saveMIDI(
+            this.outputMidiPath.replace(/\.mid$/, '')
+        );
     }
 
     _saveAsOneTrack() {
@@ -314,9 +325,9 @@ module.exports = class Horizon {
         }
 
         const write = new MidiWriter.Writer(this.track);
-        const path = this.outputMidiPath.replace(/\.mid$/, '');
-        write.saveMIDI(path);
-        return this.outputMidiPath;
+        write.saveMIDI(
+            this.outputMidiPath.replace(/\.mid$/, '')
+        );
     }
 }
 
