@@ -60,13 +60,19 @@ module.exports = class Horizon {
         this.scaleName = options.scaleName || 'pentatonic';
         this.scale = SCALES[this.scaleName];
         this.chords = CHORDS[this.scaleName];
-        console.log(this.chords);
         this.staveX = options.x || null;
         this.staveY = this.octaves * this.scale.length;
         this.timeFactor = options.timeFactor || 24;
         this.cropTolerance = options.cropTolerance || 0.2;
         this.velocityScaleMax = options.velocityScaleMax || 127;
         this.minVelocityPostScale = options.minVelocityPostScale || 2;
+    }
+
+    static sum(subject) {
+        return subject.reduce(
+            (a, b) => { return a + b },
+            0
+        );
     }
 
     static rgb2hsl(r, g, b) {
@@ -188,17 +194,20 @@ module.exports = class Horizon {
         this.px = [...new Array(this.staveX)].map(x => new Array(this.staveY));
         this.colours = [...new Array(this.staveX)].map(x => new Array(this.staveY));
 
-        await this.img
-            .contrast(this.contrast);
-
         this.colourImage = this.img.clone();
 
+        await this.img.contrast(this.contrast);
         await this.img.greyscale();
 
         await Promise.all([
             this._resize(this.img),
             this._resize(this.colourImage)
         ]);
+
+        await this.img.invert()
+            .write(this.outputImgPath);
+
+        await this.colourImage.write(this.outputImgPath);
 
         console.assert(this.staveX === this.img.bitmap.width);
         console.assert(this.staveY === this.img.bitmap.height);
@@ -207,9 +216,7 @@ module.exports = class Horizon {
     _resize(image) {
         return image.resize(this.staveX * 2, this.staveY * 2, Jimp.RESIZE_NEAREST_NEIGHBOR)
             .autocrop(this.cropTolerance, false)
-            .resize(this.staveX, this.staveY, Jimp.RESIZE_NEAREST_NEIGHBOR)
-            .invert()
-            .write(this.outputImgPath);
+            .resize(this.staveX, this.staveY, Jimp.RESIZE_NEAREST_NEIGHBOR);
     }
 
 
@@ -233,8 +240,6 @@ module.exports = class Horizon {
         this.notes = [...new Array(this.staveX)].map(x => new Array(this.staveY));
 
         for (let x = 0; x < this.staveX; x++) {
-            const startTick = x * this.timeFactor;
-
             for (let y = 0; y < this.staveY; y++) {
                 const velocity = this.scaleVelocity(this.px[x][y]);
                 if (velocity > this.minVelocityPostScale) {
@@ -244,7 +249,7 @@ module.exports = class Horizon {
                         pitch: this.scale[pitch] + octave,
                         velocity: velocity,
                         duration: 1,
-                        startTick: startTick
+                        startTick: x * this.timeFactor
                     };
                 }
             }
@@ -255,7 +260,7 @@ module.exports = class Horizon {
     }
 
     _getHighestNotes(wantFriends = true) {
-        this.highestNotes = [];
+        this.highestNotes = new Array(this.staveX);
         this.logger.warn(`Get highest notes, with friends? ${wantFriends}`);
 
         for (let x = 0; x < this.staveX; x++) {
@@ -264,16 +269,16 @@ module.exports = class Horizon {
 
                 if (this.notes[x][y] && neighboured) {
                     // Require the note to have another below to avoid noise:
-                    this.highestNotes.push({
-                        note: this.notes[x][y],
+                    this.highestNotes[x] = {
+                        ... this.notes[x][y],
                         colour: this.colours[x][y],
-                    });
+                    };
                     break;
                 }
             }
         }
 
-        if (this.highestNotes.length === 0) {
+        if (Horizon.sum(this.highestNotes) === 0) {
             this.logger.warn('Found no highest notes');
             if (wantFriends) {
                 this.logger.warn('Trying again without asking for friends.');
@@ -323,28 +328,8 @@ module.exports = class Horizon {
         return a.pitch === b.pitch && a.velocity === b.velocity;
     }
 
-    _normaliseDuration(note) {
+    _sustainNotes(note) {
         note.duration = 'T' + (this.timeFactor * note.duration);
-    }
-
-    _saveHighestNotes() {
-        if (!this.highestNotes || this.highestNotes.length === 0) {
-            throw new Error('No highestNotes to save.');
-        }
-
-        this.track = new MidiWriter.Track();
-        this.highestNotes.forEach(note => {
-            this._normaliseDuration(note.note);
-            this.track.addEvent(
-                new MidiWriter.NoteEvent(note.note)
-            );
-        });
-
-        const write = new MidiWriter.Writer(this.track);
-        this.outputMidiPath = this.outputMidiPath.replace(/\.mid$/, '_hi.mid');
-        write.saveMIDI(
-            this.outputMidiPath.replace(/\.mid$/, '')
-        );
     }
 
     _saveAsOneTrack() {
@@ -352,7 +337,7 @@ module.exports = class Horizon {
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
                 if (this.notes[x][y]) {
-                    this._normaliseDuration(this.notes[x][y]);
+                    this._sustainNotes(this.notes[x][y]);
                     this.track.addEvent(
                         new MidiWriter.NoteEvent(this.notes[x][y])
                     );
@@ -366,30 +351,93 @@ module.exports = class Horizon {
         );
     }
 
+    _saveHighestNotes() {
+        if (!this.highestNotes || Horizon.sum(this.highestNotes) === 0) {
+            throw new Error('No highestNotes to save.');
+        }
+
+        this.track = new MidiWriter.Track();
+
+        for (let x = 0; x < this.staveX; x++) {
+            if (this.highestNotes[x]) {
+                this._sustainNotes(this.highestNotes[x]);
+                this.track.addEvent(
+                    new MidiWriter.NoteEvent(this.highestNotes[x])
+                );
+            }
+        }
+
+        const write = new MidiWriter.Writer(this.track);
+        this.outputMidiPath = this.outputMidiPath.replace(/\.mid$/, '_hi.mid');
+        write.saveMIDI(
+            this.outputMidiPath.replace(/\.mid$/, '')
+        );
+    }
+
+    _saveColouredHighestNotes() {
+        if (!this.highestNotes || Horizon.sum(this.highestNotes) === 0) {
+            throw new Error('No highestNotes to save.');
+        }
+        if (!this.colourChords || Horizon.sum(this.colourChords) === 0) {
+            throw new Error('No colourChords to save.');
+        }
+
+        const tracks = {
+            highest: new MidiWriter.Track(),
+            colours: new MidiWriter.Track(),
+        };
+
+        for (let x = 0; x < this.staveX; x++) {
+            if (this.highestNotes[x]) {
+                // this._sustainNotes(this.highestNotes[x].note);
+                tracks.highest.addEvent(
+                    new MidiWriter.NoteEvent({
+                        velocity: this.highestNotes[x].velocity,
+                        duration: 'T' + this.highestNotes[x].duration,
+                        pitch: this.highestNotes[x].pitch,
+                        startTick: x * this.timeFactor
+                    })
+                );
+            }
+            tracks.colours.addEvent(
+                new MidiWriter.NoteEvent(
+                    {
+                        velocity: this.highestNotes[x].velocity,
+                        duration: 1, // this.highestNotes[x].duration,
+                        pitch: this.colourChords[x],
+                        startTick: x * this.timeFactor
+                    }
+                )
+            );
+        }
+
+        const write = new MidiWriter.Writer(
+            Object.values(tracks)
+        );
+        this.outputMidiPath = this.outputMidiPath.replace(/\.mid$/, '_coloured.mid');
+        write.saveMIDI(
+            this.outputMidiPath.replace(/\.mid$/, '')
+        );
+    }
+
     _processColours() {
-        if (!this.highestNotes || this.highestNotes.length === 0) {
+        if (!this.highestNotes || Horizon.sum(this.highestNotes) === 0) {
             throw new Error('No highestNotes to save.');
         }
 
         this.colourChords = [];
 
-        this.highestNotes = this.highestNotes.slice(0, 1);
-        this.highestNotes.forEach(note => {
-            const chord = this.colour2chord(note.colour);
-            this.colourChords.push(
-                Chord.notes(chord).map(
-                    note => note + '4'
-                )
+        for (let x = 0; x < this.staveX; x++) {
+            const chord = this.colour2chord(this.highestNotes[x].colour);
+            this.colourChords[x] = Chord.notes(chord).map(
+                note => note + '4'
             );
-        });
+        }
     }
 
     colour2chord(colour) {
-        const rv = this.chords[
-            // pitchName.toLowerCase().substr(0, 1).charCodeAt(0) - 97
-            (colour * this.chords.length) % this.chords.length
-        ];
-        return rv;
+        const index = Math.round(colour * this.chords.length);
+        return this.chords[index];
     }
 }
 

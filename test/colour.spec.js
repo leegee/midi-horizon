@@ -28,29 +28,36 @@ describe('color', () => {
         expect(h.chords).to.be.instanceOf(Array);
         expect(h.chords.length).to.equal(h.scale.length);
         expect(h.colour2chord(0)).to.equal('Am');
-        expect(h.colour2chord(6)).to.equal('Am');
     });
 
     it('gets a colour pixel', () => {
         h._getHighestNotes();
         expect(h.highestNotes.length).to.be.greaterThan(0);
 
-        expect(h.highestNotes[0]).to.deep.equal({
-            note: { pitch: 'G8', velocity: 32, duration: 5, startTick: 0 },
-            colour: 0
-        });
+        // expect(h.highestNotes[0]).to.deep.equal({
+        //     note: { pitch: 'G8', velocity: 32, duration: 5, startTick: 0 },
+        //     colour: 0
+        // });
+
+        expect(h.highestNotes.length).to.be.greaterThan(0);
 
         h._processColours();
+
+        expect(h.highestNotes.length).to.be.greaterThan(0);
+        expect(h.colourChords.length).to.be.greaterThan(0);
 
         expect(h.colourChords).to.have.length.greaterThan(0);
         expect(h.colourChords[0]).to.be.an.instanceOf(Array);
         expect(h.colourChords[0]).to.have.length.greaterThan(0);
-        expect(h.colourChords[0]).to.deep.equal(
-            ['A4', 'C4', 'E4']
-        );
+        // expect(h.colourChords[0]).to.deep.equal( ['A4', 'C4', 'E4'] );
 
-        // h._saveHighestNotes();
+        h._saveColouredHighestNotes();
 
+        expect(h.outputMidiPath).to.match(/_coloured\.mid$/);
+
+        expect(
+            h.outputMidiPath
+        ).to.be.a.file(h.outputMidiPath);
     });
 
 });
