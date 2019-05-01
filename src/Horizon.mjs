@@ -4,9 +4,15 @@ const fs = require('fs');
 var log4js = require('log4js');
 const Jimp = require('jimp');
 const MidiWriter = require('midi-writer-js');
+// const Detect = require("tonal-detect")
+const Chord = require("tonal-chord")
 
 const SCALES = {
     pentatonic: ["A", "C", "D", "E", "G"]
+};
+
+const CHORDS = {
+    pentatonic: ["Am", "C", "Dm", "E", "G"]
 };
 
 const MOD_SUFFIX = '_tmp.png';
@@ -23,7 +29,8 @@ module.exports = class Horizon {
      * @param options.input {string} Path to input image file.
      * @param options.output {string} Path to output directory 
      * @param options.octaves {number=7} Number of octaves to use
-     * @param options.scale {string=pentatonic} Invariable atm
+     * @param options.scale {Array<string>} A, B, C, etc
+     * @param options.scaleName {string=pentatonic} Invariable atm
      * @param options.x  {number?} Number of time slots (beats?)
      * @param options.timeFactor {number} Multiplier for MIDI ticks.
      * @param options.transposeOctave {number=2} 
@@ -47,25 +54,19 @@ module.exports = class Horizon {
 
         this._setPaths(options);
 
-        this.contrast = 0.5;
+        this.contrast = options.contrast || 0.5;
         this.transposeOctave = options.transposeOctave || 2;
         this.octaves = options.octaves || 7;
-        this.scale = SCALES[options.scale || 'pentatonic'];
+        this.scaleName = options.scaleName || 'pentatonic';
+        this.scale = SCALES[this.scaleName];
+        this.chords = CHORDS[this.scaleName];
+        console.log(this.chords);
         this.staveX = options.x || null;
         this.staveY = this.octaves * this.scale.length;
         this.timeFactor = options.timeFactor || 24;
         this.cropTolerance = options.cropTolerance || 0.2;
         this.velocityScaleMax = options.velocityScaleMax || 127;
         this.minVelocityPostScale = options.minVelocityPostScale || 2;
-    }
-
-    _setPaths(options) {
-        this.input = path.resolve(options.input);
-        this.output = path.resolve(options.output);
-        this._inputFilename = this.input.match(/([^\\\/]+)[\\\/]*$/)[1]; // path.posix.basename(this.input);
-        this._outputDir = this.output.match(/\.\w+$/) === null ? this.output : path.dirname(this.output);
-        this.outputImgPath = path.join(this._outputDir, this._inputFilename + MOD_SUFFIX);
-        this.outputMidiPath = path.join(this._outputDir, this._inputFilename + '.mid');
     }
 
     static rgb2hsl(r, g, b) {
@@ -142,11 +143,27 @@ module.exports = class Horizon {
         return createdHorizons;
     }
 
+    _setPaths(options) {
+        this.input = path.resolve(options.input);
+        this.output = path.resolve(options.output);
+        this._inputFilename = this.input.match(/([^\\\/]+)[\\\/]*$/)[1]; // path.posix.basename(this.input);
+        this._outputDir = this.output.match(/\.\w+$/) === null ? this.output : path.dirname(this.output);
+        this.outputImgPath = path.join(this._outputDir, this._inputFilename + MOD_SUFFIX);
+        this.outputMidiPath = path.join(this._outputDir, this._inputFilename + '.mid');
+    }
+
     scaleVelocity(pixelValue) {
-        if (pixelValue > 256) {
-            throw new RangeError('pixelValue ' + pixelValue + ' out of range.');
+        if (pixelValue > 255) {
+            throw new RangeError('pixelValue ' + pixelValue + ' should range 0 255.');
         }
         return Math.floor(((pixelValue) / 255) * this.velocityScaleMax);
+    }
+
+    scaleColour(lightness) {
+        if (lightness > 1) {
+            throw new RangeError('lightness ' + lightness + ' should range 0 - 1.');
+        }
+        return Math.floor(lightness * this.chords.length);
     }
 
     do() {
@@ -169,17 +186,18 @@ module.exports = class Horizon {
         }
 
         this.px = [...new Array(this.staveX)].map(x => new Array(this.staveY));
+        this.colours = [...new Array(this.staveX)].map(x => new Array(this.staveY));
 
         await this.img
             .contrast(this.contrast);
 
-        this.imgClr = this.img.clone();
+        this.colourImage = this.img.clone();
 
         await this.img.greyscale();
 
         await Promise.all([
             this._resize(this.img),
-            this._resize(this.imgClr)
+            this._resize(this.colourImage)
         ]);
 
         console.assert(this.staveX === this.img.bitmap.width);
@@ -199,10 +217,14 @@ module.exports = class Horizon {
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
                 const rgb = Jimp.intToRGBA(
-                    this.img.getPixelColor(x + 1, y + 1)
+                    this.colourImage.getPixelColor(x + 1, y + 1)
                 );
+                const hsl = Horizon.rgb2hsl(rgb.r, rgb.g, rgb.b);
+
                 this.px[x][this.staveY - 1 - y] = rgb.r;
-                // this.colours[x][this.staveY - y] = Horizon.rgb2hsl(rgb.r, rgb.g, rgb.b)[LIGHTNESS] * 255;
+                // this.px[x][this.staveY - 1 - y] = hsl[LIGHTNESS];
+
+                this.colours[x][this.staveY - 1 - y] = hsl[HUE];
             }
         }
     }
@@ -242,7 +264,10 @@ module.exports = class Horizon {
 
                 if (this.notes[x][y] && neighboured) {
                     // Require the note to have another below to avoid noise:
-                    this.highestNotes.push(this.notes[x][y]);
+                    this.highestNotes.push({
+                        note: this.notes[x][y],
+                        colour: this.colours[x][y],
+                    });
                     break;
                 }
             }
@@ -309,9 +334,9 @@ module.exports = class Horizon {
 
         this.track = new MidiWriter.Track();
         this.highestNotes.forEach(note => {
-            this._normaliseDuration(note);
+            this._normaliseDuration(note.note);
             this.track.addEvent(
-                new MidiWriter.NoteEvent(note)
+                new MidiWriter.NoteEvent(note.note)
             );
         });
 
@@ -339,6 +364,32 @@ module.exports = class Horizon {
         write.saveMIDI(
             this.outputMidiPath.replace(/\.mid$/, '')
         );
+    }
+
+    _processColours() {
+        if (!this.highestNotes || this.highestNotes.length === 0) {
+            throw new Error('No highestNotes to save.');
+        }
+
+        this.colourChords = [];
+
+        this.highestNotes = this.highestNotes.slice(0, 1);
+        this.highestNotes.forEach(note => {
+            const chord = this.colour2chord(note.colour);
+            this.colourChords.push(
+                Chord.notes(chord).map(
+                    note => note + '4'
+                )
+            );
+        });
+    }
+
+    colour2chord(colour) {
+        const rv = this.chords[
+            // pitchName.toLowerCase().substr(0, 1).charCodeAt(0) - 97
+            (colour * this.chords.length) % this.chords.length
+        ];
+        return rv;
     }
 }
 

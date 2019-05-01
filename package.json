@@ -12,7 +12,9 @@
     "jimp": "^0.6.4",
     "log4js": "^4.1.0",
     "midi-writer-js": "^1.7.1",
-    "minimist": "^1.2.0"
+    "minimist": "^1.2.0",
+    "tonal-chord": "^2.2.2",
+    "tonal-detect": "^2.2.2"
   },
   "devDependencies": {
     "chai": "^4.2.0",
