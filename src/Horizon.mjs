@@ -1,5 +1,7 @@
 const path = require('path');
 const fs = require('fs');
+
+var log4js = require('log4js');
 const Jimp = require('jimp');
 const MidiWriter = require('midi-writer-js');
 
@@ -36,6 +38,8 @@ module.exports = class Horizon {
         if (!fs.existsSync(options.input)) {
             throw new TypeError('input file does not exist at ' + this.input);
         }
+
+        this.logger = options.logger || log4js.getLogger();
 
         this._setPaths(options);
 
@@ -94,10 +98,9 @@ module.exports = class Horizon {
 
     static async doDirHighestNotes(options = {}) {
         const createdHorizons = await Horizon.dir2horizons(options);
-        console.log(createdHorizons);
-        // createdHorizons.forEach(h => {
-        //     h.doHighestNotes();
-        // });
+        createdHorizons.forEach(h => {
+            h.doHighestNotes();
+        });
         return createdHorizons;
     }
 
@@ -224,6 +227,10 @@ module.exports = class Horizon {
                     break;
                 }
             }
+        }
+
+        if (this.highestNotes.length === 0){
+            this.logger.warn('Found no highest notes');
         }
     }
 

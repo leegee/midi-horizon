@@ -1,10 +1,12 @@
 const fs = require('fs');
-const path = require('path');
 const chai = require('chai');
 
-const Horizon = require('./Horizon.mjs');
+const Horizon = require('../src/Horizon.mjs');
 
 const expect = chai.expect;
+
+const logger = require('./Logger-test.mjs');
+logger.level = 'trace';
 
 describe('horizon - highest notes', () => {
 
@@ -15,6 +17,7 @@ describe('horizon - highest notes', () => {
             h = new Horizon({
                 input: './test/images/london.jpg',
                 output: './test/output/',
+                logger: logger
             });
             expect(h._inputFilename).to.equal('london.jpg');
             expect(h.outputImgPath, 'img path').to.match(

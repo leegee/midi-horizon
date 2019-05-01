@@ -2,8 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const chai = require('chai');
 
-const Horizon = require('./Horizon.mjs');
-
+const Horizon = require('../src/Horizon.mjs');
+const logger = require('./Logger-test.mjs');
 const expect = chai.expect;
 
 describe('horizon', () => {
@@ -12,7 +12,8 @@ describe('horizon', () => {
         it('constructs', () => {
             const h = new Horizon({
                 input: './test/images/london.jpg',
-                output: './test/output/'
+                output: './test/output/',
+                logger: logger
             });
             expect(h).to.be.an.instanceOf(Horizon);
         });
@@ -120,7 +121,7 @@ describe('horizon', () => {
                 expect(horizons).to.have.length.greaterThan(0);
                 horizons.forEach(h => {
                     expect(
-                        fs.existsSync(path.resolve(h.outputMidiPath))
+                        fs.existsSync(h.outputMidiPath)
                     ).to.be.ok;
 
                 });
