@@ -216,12 +216,14 @@ module.exports = class Horizon {
         // this._getNoteDensities();
     }
 
-    _getHighestNotes() {
+    _getHighestNotes(wantFriends = true) {
         this.highestNotes = []
 
         for (let x = 0; x < this.staveX; x++) {
             for (let y = this.staveY; y >= 0; y--) {
-                if (this.notes[x][y] && this.notes[x][y - 1]) {
+                let neighboured = wantFriends ? this.notes[x][y - 1] : true;
+
+                if (this.notes[x][y] && neighboured) {
                     // Require the note to have another below to avoid noise:
                     this.highestNotes.push(this.notes[x][y]);
                     break;
@@ -229,8 +231,11 @@ module.exports = class Horizon {
             }
         }
 
-        if (this.highestNotes.length === 0){
+        if (this.highestNotes.length === 0) {
             this.logger.warn('Found no highest notes');
+            if (wantFriends) {
+                this._getHighestNotes(false);
+            }
         }
     }
 

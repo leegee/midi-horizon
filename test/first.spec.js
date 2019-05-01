@@ -44,7 +44,7 @@ describe('horizon', () => {
         });
     });
 
-    xdescribe('resize', () => {
+    describe('resize', () => {
         const h = new Horizon({
             input: './test/images/london.jpg',
             output: './test/output/',
@@ -80,37 +80,6 @@ describe('horizon', () => {
                 savedAt
             ).to.be.true;
         });
-    });
-
-    describe('static methods', () => {
-        xdescribe('Horizon.dir2horizons', () => {
-            it('runs', async () => {
-                const horizons = await Horizon.dir2horizons({
-                    input: './test/images/',
-                    output: './test/output/',
-                });
-                expect(horizons).to.be.an.instanceOf(Array);
-                expect(horizons).to.have.length.greaterThan(0);
-            });
-        });
-
-        xdescribe('Horizon.doDir', () => {
-            it('runs', async () => {
-                const horizons = await Horizon.doDir({
-                    input: './test/images',
-                    output: './test/output',
-                });
-                expect(horizons).to.be.an.instanceOf(Array);
-                expect(horizons).to.have.length.greaterThan(0);
-                horizons.forEach(h => {
-                    expect(
-                        fs.existsSync(path.resolve(h.outputMidiPath))
-                    ).to.be.ok;
-
-                });
-            }).timeout(60 * 1000 * 2 * 7);
-        });
-
     });
 
 });
