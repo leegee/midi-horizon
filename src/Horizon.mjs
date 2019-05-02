@@ -55,7 +55,7 @@ class Horizon {
         this._setPaths(options);
 
         this.contrast = options.contrast || 0.5;
-        this.transposeOctave = options.transposeOctave || 2;
+        this.transposeOctave = options.transposeOctave || 1;
         this.octaves = (options.octaves || MAX_OCTAVES) + this.transposeOctave;
         this.scaleName = options.scaleName || 'pentatonic';
         this.scale = SCALES[this.scaleName];
@@ -383,6 +383,8 @@ class Horizon {
             throw new Error('No colourChords to save.');
         }
 
+        this.checkPitches(this.highestNotes);
+
         const tracks = {
             highest: new MidiWriter.Track(),
             colours: new MidiWriter.Track(),
@@ -391,10 +393,6 @@ class Horizon {
         for (let x = 0; x < this.staveX; x++) {
             if (this.highestNotes[x]) {
                 const startTick = x * this.timeFactor;
-                // console.log(this.highestNotes[x].pitch,
-                //     this.colourChords[x],
-                //     this.highestNotes[x].velocity
-                // );
                 // this._sustainNotes(this.highestNotes[x].note);
                 tracks.highest.addEvent(
                     new MidiWriter.NoteEvent({
@@ -424,6 +422,7 @@ class Horizon {
         write.saveMIDI(
             this.outputMidiPath.replace(/\.mid$/, '')
         );
+        this.logger.info(this.outputMidiPath);
     }
 
     _processColours() {
@@ -452,6 +451,21 @@ class Horizon {
     colour2chord(colour) {
         const index = Math.round(colour * (this.chords.length - 1));
         return this.chords[index];
+    }
+
+    checkPitches(notes) {
+        let tooHigh = false;
+        for (let x = 0; x < notes.length; x++) {
+            if (Number(notes[x].pitch.substr(1, 1)) > 7) {
+                tooHigh = true;
+            }
+        }
+        if (tooHigh) {
+            notes = notes.map(note => {
+                const octave = Number(note.pitch.substr(1, 1));
+                note.pitch = note.pitch.substr(0, 1) + (octave - 1);
+            });
+        }
     }
 };
 
