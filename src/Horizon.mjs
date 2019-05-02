@@ -15,12 +15,14 @@ const CHORDS = {
     pentatonic: ["Am", "C", "Dm", "E", "G"]
 };
 
+const MAX_OCTAVES = 8;
 const MOD_SUFFIX = '_tmp.png';
 const OUR_PROCESSED_IMAGE_FILE = new RegExp(MOD_SUFFIX + '$');
 const WANTED_IMAGE_FILES = /\.(jpg|jpeg|png)$/i;
 const HUE = 0;
 const SATURATION = 1;
 const LIGHTNESS = 2;
+const MAX_VELOCITY_IN_PIXEL =1; // 255 if using rgb
 
 module.exports = class Horizon {
     /**
@@ -56,12 +58,12 @@ module.exports = class Horizon {
 
         this.contrast = options.contrast || 0.5;
         this.transposeOctave = options.transposeOctave || 2;
-        this.octaves = options.octaves || 7;
+        this.octaves = (options.octaves || MAX_OCTAVES) + this.transposeOctave;
         this.scaleName = options.scaleName || 'pentatonic';
         this.scale = SCALES[this.scaleName];
         this.chords = CHORDS[this.scaleName];
         this.staveX = options.x || null;
-        this.staveY = this.octaves * this.scale.length;
+        this.staveY = MAX_OCTAVES * this.scale.length;
         this.timeFactor = options.timeFactor || 24;
         this.cropTolerance = options.cropTolerance || 0.2;
         this.velocityScaleMax = options.velocityScaleMax || 127;
@@ -160,10 +162,10 @@ module.exports = class Horizon {
     }
 
     scaleVelocity(pixelValue) {
-        if (pixelValue > 255) {
-            throw new RangeError('pixelValue ' + pixelValue + ' should range 0 255.');
+        if (pixelValue > MAX_VELOCITY_IN_PIXEL) {
+            throw new RangeError('pixelValue ' + pixelValue + ' should range 0 '+MAX_VELOCITY_IN_PIXEL);
         }
-        return Math.floor(((pixelValue) / 255) * this.velocityScaleMax);
+        return Math.floor(((pixelValue) / MAX_VELOCITY_IN_PIXEL) * this.velocityScaleMax);
     }
 
     scaleColour(lightness) {
@@ -228,10 +230,8 @@ module.exports = class Horizon {
                     this.colourImage.getPixelColor(x + 1, y + 1)
                 );
                 const hsl = Horizon.rgb2hsl(rgb.r, rgb.g, rgb.b);
-
-                this.px[x][this.staveY - 1 - y] = rgb.r;
-                // this.px[x][this.staveY - 1 - y] = hsl[LIGHTNESS];
-
+                // this.px[x][this.staveY - 1 - y] = rgb.r;
+                this.px[x][this.staveY - 1 - y] = hsl[LIGHTNESS];
                 this.colours[x][this.staveY - 1 - y] = hsl[HUE];
             }
         }
@@ -262,7 +262,7 @@ module.exports = class Horizon {
 
     _getHighestNotes(wantFriends = true) {
         this.highestNotes = new Array(this.staveX);
-        this.logger.warn(`Get highest notes, with friends? ${wantFriends}`);
+        this.logger.trace(`Get highest notes, with friends? ${wantFriends}`);
 
         for (let x = 0; x < this.staveX; x++) {
             for (let y = this.staveY; y >= 0; y--) {
@@ -280,12 +280,11 @@ module.exports = class Horizon {
         }
 
         if (Horizon.sum(this.highestNotes) === 0) {
-            this.logger.warn('Found no highest notes');
+            this.logger.trace('Found no highest notes');
             if (wantFriends) {
-                this.logger.warn('Trying again without asking for friends.');
+                this.logger.trace('Trying again without asking for friends.');
                 this._getHighestNotes(false);
             } else {
-                // this.logger.warn(JSON.stringify(this.px));
                 throw new Error('Found no highest notes, even lonely ones.');
             }
         }
