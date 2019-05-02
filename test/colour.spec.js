@@ -47,16 +47,15 @@ describe('color', () => {
         // });
 
         expect(h.highestNotes.length).to.be.greaterThan(0);
+        expect(h.colours[0][0]).not.to.be.undefined;
 
         h._processColours();
 
         expect(h.highestNotes.length).to.be.greaterThan(0);
-        expect(h.colourChords.length).to.be.greaterThan(0);
+        expect(h.averageColours.length).to.be.greaterThan(0);
 
-        expect(h.colourChords).to.have.length.greaterThan(0);
-        expect(h.colourChords[0]).to.be.an.instanceOf(Array);
-        expect(h.colourChords[0]).to.have.length.greaterThan(0);
-        // expect(h.colourChords[0]).to.deep.equal( ['A4', 'C4', 'E4'] );
+        expect(h.averageColours[0].pitch).to.be.an.instanceOf(Array);
+        expect(h.averageColours[0].pitch).to.have.length.greaterThan(0);
 
         h._saveColouredHighestNotes();
 

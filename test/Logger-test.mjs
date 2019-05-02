@@ -1,7 +1,7 @@
 const log4js = require('log4js');
 
 log4js.addLayout('json', config => function (logEvent) {
-    return '# ' + JSON.stringify(logEvent.data.join('\n'));
+    return '# ' + JSON.stringify(logEvent.data.join(' '));
 });
 
 log4js.configure({

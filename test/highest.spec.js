@@ -13,11 +13,10 @@ describe('highest notes', () => {
 
     it('should construct', async () => {
         h = new Horizon({
-            input: './test/images/london.jpg',
+            input: './test/images/dubai.jpg',
             output: './test/output/',
             x: 100,
-            velocityScaleMax: 10,
-            minVelocityPostScale: 2,
+            minVelocityPostScale: 20,
             logger
         });
 
@@ -27,21 +26,21 @@ describe('highest notes', () => {
         expect(h.img.bitmap.height).to.equal(h.staveY);
 
         h._getPixels();
-        expect(h.px[0][0]).to.be.ok;
+        expect(h.px[0][0]).not.to.be.undefined;
+        // expect(h.px[0][0]).to.equal(0);
         h._linear();
-        expect(h.notes[0][0]).to.be.ok;
+        expect(h.px[0][0]).not.to.be.undefined;
+        // expect(h.px[0][0]).to.equal(0);
     });
 
     it('should extract and save', async () => {
-
         h._getHighestNotes();
         h._saveHighestNotes();
 
         expect(h.outputMidiPath, 'midi path').to.match(
-            /test[\\\/]output[\\\/]london\.jpg_hi\.mid$/
+            /test[\\\/]output[\\\/]dubai\.jpg_hi\.mid$/
         );
 
-        h._saveAsOneTrack();
         expect(
             h.outputMidiPath
         ).to.be.a.file(h.outputMidiPath);
