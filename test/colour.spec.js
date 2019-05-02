@@ -27,7 +27,14 @@ describe('color', () => {
     it('note2chord', () => {
         expect(h.chords).to.be.instanceOf(Array);
         expect(h.chords.length).to.equal(h.scale.length);
+    });
+
+    it('note2chord floor', () => {
         expect(h.colour2chord(0)).to.equal('Am');
+    });
+
+    it('note2chord ceil', () => {
+        expect(h.colour2chord(0.9814814814814814)).to.equal('G');
     });
 
     it('gets a colour pixel', () => {

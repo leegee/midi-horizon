@@ -31,10 +31,14 @@ describe('general', () => {
     });
 
     describe('scales velocity', () => {
-        it('default 127', () => {
+        it('scale max', () => {
             expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(127);
-            expect(h.scaleVelocity(255), 'scaled').to.equal(127);
-            expect(h.scaleVelocity(127.5), 'scaled').to.equal(63);
+        })
+        it('100%', () => {
+            expect(h.scaleVelocity(Horizon.MAX_VELOCITY_IN_PIXEL), 'scaled 100%').to.equal(127);
+        })
+        it('50%', () => {
+            expect(h.scaleVelocity(Horizon.MAX_VELOCITY_IN_PIXEL/2), 'scaled 50%').to.equal(63);
         })
 
         it('at 100', () => {
@@ -45,8 +49,8 @@ describe('general', () => {
             });
             expect(h).to.be.an.instanceOf(Horizon);
             expect(h.velocityScaleMax, 'velocityScaleMax').to.equal(100);
-            expect(h.scaleVelocity(255), 'scaled').to.equal(100);
-            expect(h.scaleVelocity(127.5), 'scaled').to.equal(50);
+            expect(h.scaleVelocity(Horizon.MAX_VELOCITY_IN_PIXEL), 'scaled').to.equal(100);
+            expect(h.scaleVelocity(Horizon.MAX_VELOCITY_IN_PIXEL/2), 'scaled').to.equal(50);
         });
     });
 

@@ -4,7 +4,6 @@ const fs = require('fs');
 var log4js = require('log4js');
 const Jimp = require('jimp');
 const MidiWriter = require('midi-writer-js');
-// const Detect = require("tonal-detect")
 const Chord = require("tonal-chord")
 
 const SCALES = {
@@ -22,9 +21,8 @@ const WANTED_IMAGE_FILES = /\.(jpg|jpeg|png)$/i;
 const HUE = 0;
 const SATURATION = 1;
 const LIGHTNESS = 2;
-const MAX_VELOCITY_IN_PIXEL =1; // 255 if using rgb
 
-module.exports = class Horizon {
+class Horizon {
     /**
      * 
      * @param options {Object} options
@@ -162,10 +160,13 @@ module.exports = class Horizon {
     }
 
     scaleVelocity(pixelValue) {
-        if (pixelValue > MAX_VELOCITY_IN_PIXEL) {
-            throw new RangeError('pixelValue ' + pixelValue + ' should range 0 '+MAX_VELOCITY_IN_PIXEL);
+        if (pixelValue > Horizon.MAX_VELOCITY_IN_PIXEL) {
+            throw new RangeError('pixelValue ' + pixelValue + ' should range 0 ' + Horizon.MAX_VELOCITY_IN_PIXEL);
         }
-        return Math.floor(((pixelValue) / MAX_VELOCITY_IN_PIXEL) * this.velocityScaleMax);
+        if (isNaN(pixelValue)) {
+            throw new RangeError(`Called with NaN: ${+ pixelValue}`);
+        }
+        return Math.floor(((pixelValue) / Horizon.MAX_VELOCITY_IN_PIXEL) * this.velocityScaleMax);
     }
 
     scaleColour(lightness) {
@@ -389,13 +390,18 @@ module.exports = class Horizon {
 
         for (let x = 0; x < this.staveX; x++) {
             if (this.highestNotes[x]) {
+                const startTick = x * this.timeFactor;
+                // console.log(this.highestNotes[x].pitch,
+                //     this.colourChords[x],
+                //     this.highestNotes[x].velocity
+                // );
                 // this._sustainNotes(this.highestNotes[x].note);
                 tracks.highest.addEvent(
                     new MidiWriter.NoteEvent({
                         velocity: this.highestNotes[x].velocity,
                         duration: 'T' + this.highestNotes[x].duration,
                         pitch: this.highestNotes[x].pitch,
-                        startTick: x * this.timeFactor
+                        startTick
                     })
                 );
                 tracks.colours.addEvent(
@@ -404,7 +410,7 @@ module.exports = class Horizon {
                             velocity: this.highestNotes[x].velocity,
                             duration: 1, // this.highestNotes[x].duration,
                             pitch: this.colourChords[x],
-                            startTick: x * this.timeFactor
+                            startTick
                         }
                     )
                 );
@@ -432,15 +438,23 @@ module.exports = class Horizon {
             if (this.highestNotes[x]) {
                 chord = this.colour2chord(this.highestNotes[x].colour);
             }
-            this.colourChords[x] = Chord.notes(chord).map(
+            const notes = Chord.notes(chord);
+            if (chord === undefined) {
+                console.log(x, this.highestNotes[x], chord, notes);
+                throw new Error();
+            }
+            this.colourChords[x] = notes.map(
                 note => note + '4'
             );
         }
     }
 
     colour2chord(colour) {
-        const index = Math.round(colour * this.chords.length);
+        const index = Math.round(colour * (this.chords.length - 1));
         return this.chords[index];
     }
-}
+};
 
+Horizon.MAX_VELOCITY_IN_PIXEL = 1; // 255 if using rgb
+
+module.exports = Horizon;
