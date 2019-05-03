@@ -106,17 +106,17 @@ class Horizon {
     }
 
     static async doDirHighestNotes(options = {}) {
-        const createdHorizons = await Horizon.dir2horizons(options);
-        createdHorizons.forEach(h => {
-            h.doHighestNotes();
-        });
-        return createdHorizons;
+        Horizon.doDir(options, 'doHighestNotes');
     }
 
-    static async doDir(options = {}) {
+    static async doDirColours(options = {}) {
+        Horizon.doDir(options, 'doColours');
+    }
+
+    static async doDir(options = {}, method) {
         const createdHorizons = await Horizon.dir2horizons(options);
         createdHorizons.forEach(h => {
-            h.do();
+            method ? h[method]() : h.do();
         });
         return createdHorizons;
     }
@@ -142,39 +142,11 @@ class Horizon {
                     input: path.resolve(dir + '/' + entry.name),
                     output: path.resolve(options.output + '/' + entry.name),
                 });
-                const x = h.load();
+                h.load();
                 createdHorizons.push(h);
             }
         });
         return createdHorizons;
-    }
-
-    _setPaths(options) {
-        this.input = path.resolve(options.input);
-        this.output = path.resolve(options.output);
-        this._inputFilename = this.input.match(/([^\\\/]+)[\\\/]*$/)[1]; // path.posix.basename(this.input);
-        this._outputDir = this.output.match(/\.\w+$/) === null ? this.output : path.dirname(this.output);
-        this.outputImgPath = path.join(this._outputDir, this._inputFilename + MOD_SUFFIX);
-        this.outputClrImgPath = path.join(this._outputDir, this._inputFilename + '_clr_' + MOD_SUFFIX);
-        this.outputMidiPath = path.join(this._outputDir, this._inputFilename + '.mid');
-    }
-
-    scaleVelocity(pixelValue) {
-        if (pixelValue > Horizon.MAX_VELOCITY_IN_PIXEL) {
-            throw new RangeError('pixelValue ' + pixelValue + ' should range 0 ' + Horizon.MAX_VELOCITY_IN_PIXEL);
-        }
-        if (isNaN(pixelValue)) {
-            throw new RangeError(`Called with NaN: ${+ pixelValue}`);
-        }
-        // return Math.floor(((pixelValue) / Horizon.MAX_VELOCITY_IN_PIXEL) * this.velocityScaleMax);
-        return pixelValue * this.velocityScaleMax;
-    }
-
-    scaleColour(lightness) {
-        if (lightness > 1) {
-            throw new RangeError('lightness ' + lightness + ' should range 0 - 1.');
-        }
-        return Math.floor(lightness * this.chords.length);
     }
 
     do() {
@@ -188,6 +160,14 @@ class Horizon {
         this._linear();
         this._getHighestNotes();
         this._saveHighestNotes();
+    }
+
+    doColours() {
+        this._getPixels();
+        this._linear();
+        this._getHighestNotes();
+        this._processColours();
+        this._saveColouredHighestNotes();
     }
 
     async load() {
@@ -225,7 +205,6 @@ class Horizon {
             .resize(this.staveX, this.staveY, Jimp.RESIZE_NEAREST_NEIGHBOR)
     }
 
-
     _getPixels() {
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
@@ -247,6 +226,34 @@ class Horizon {
         }
     }
 
+    _setPaths(options) {
+        this.input = path.resolve(options.input);
+        this.output = path.resolve(options.output);
+        this._inputFilename = this.input.match(/([^\\\/]+)[\\\/]*$/)[1]; // path.posix.basename(this.input);
+        this._outputDir = this.output.match(/\.\w+$/) === null ? this.output : path.dirname(this.output);
+        this.outputImgPath = path.join(this._outputDir, this._inputFilename + MOD_SUFFIX);
+        this.outputClrImgPath = path.join(this._outputDir, this._inputFilename + '_clr_' + MOD_SUFFIX);
+        this.outputMidiPath = path.join(this._outputDir, this._inputFilename + '.mid');
+    }
+
+    _scaleVelocity(pixelValue) {
+        if (pixelValue > Horizon.MAX_VELOCITY_IN_PIXEL) {
+            throw new RangeError('pixelValue ' + pixelValue + ' should range 0 ' + Horizon.MAX_VELOCITY_IN_PIXEL);
+        }
+        if (isNaN(pixelValue)) {
+            throw new RangeError(`Called with NaN: ${+ pixelValue}`);
+        }
+        // return Math.floor(((pixelValue) / Horizon.MAX_VELOCITY_IN_PIXEL) * this.velocityScaleMax);
+        return pixelValue * this.velocityScaleMax;
+    }
+
+    _scaleColour(lightness) {
+        if (lightness > 1) {
+            throw new RangeError('lightness ' + lightness + ' should range 0 - 1.');
+        }
+        return Math.floor(lightness * this.chords.length);
+    }
+
     _scalePitch(y) {
         const pitch = y % this.scale.length;
         const octave = Math.floor(y / this.scale.length) + this.transposeOctave;
@@ -262,17 +269,14 @@ class Horizon {
                 }
                 this.notes[x][y] = {
                     pitch: this._scalePitch(y),
-                    velocity: this.scaleVelocity(this.px[x][y]),
+                    velocity: this._scaleVelocity(this.px[x][y]),
                     duration: 1,
                     startTick: x * this.timeFactor
                 };
-                // }
             }
         }
 
-        // console.log(this.notes);
         this._sustainAdjacentNotes(this.notes);
-        // this._getNoteDensities();
     }
 
     // forget friends
@@ -476,29 +480,34 @@ class Horizon {
         }
 
         for (let x = 0; x < this.staveX; x++) {
-            this.averageColours[x] = { colour: 0, velocity: 0, duration: 1 };
+            this.averageColours[x] = { colour: 0, velocity: 0, duration: 1, octave: 0 };
 
             for (let y = 0; y < this.staveY; y++) {
                 this.averageColours[x].colour += this.colours[x][y][HUE];
                 this.averageColours[x].velocity += this.colours[x][y][LIGHTNESS];
+                this.averageColours[x].octave += 1 - this.colours[x][y][SATURATION];
             }
 
             this.averageColours[x].colour /= this.staveY;
             this.averageColours[x].velocity /= this.staveY;
-            this.scaleVelocity(this.averageColours[x].velocity);
+            this.averageColours[x].octave = Math.floor(
+                this.averageColours[x].octave / (this.staveY / this.scale.length)
+            );
+            this._scaleVelocity(this.averageColours[x].velocity);
 
-            const chord = this.colour2chord(this.averageColours[x].colour);
-            const notes = Chord.notes(chord);
+            const chord = this._colour2chordName(
+                this.averageColours[x].colour,
+                this.averageColours[x].octave
+            );
+            this.averageColours[x].pitch = Chord.notes(chord).map(
+                note => note + this.averageColours[x].octave
+            );
 
             if (chord === undefined) {
                 console.warn(x, this.averageColours[x]);
                 console.warn(x, this.highestNotes[x], chord, notes);
                 throw new Error('No chord at ' + x);
             }
-
-            this.averageColours[x].pitch = notes.map(
-                note => note + '4'
-            );
 
             if (this.averageColours[x].pitch === undefined) {
                 throw new Error();
@@ -508,7 +517,10 @@ class Horizon {
         this._sustainAdjacentColours(this.averageColours);
     }
 
-    colour2chord(colour) {
+    _colour2chordName(colour, octave = 3) {
+        if (isNaN(octave)) {
+            throw new RangeError('octave is ' + octave);
+        }
         const index = Math.round(colour * (this.chords.length - 1));
         return this.chords[index];
     }
