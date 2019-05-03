@@ -61,7 +61,7 @@ describe('general', () => {
             logger: logger,
             x: 100,
             velocityScaleMax: 10,
-            minUnscaledVelocity: 2
+            minUnscaledVelocity: .2
         });
 
         it('should resize input image', async () => {

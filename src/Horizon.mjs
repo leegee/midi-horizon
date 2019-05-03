@@ -38,6 +38,7 @@ class Horizon {
      * @param options.cropTolerance {number} Range 0 - 1.
      * @param options.velocityScaleMax {number} Scale velocities to smaller ceilings to remove precision/steps.
      * @param options.minUnscaledVelocity {number=0} Ignore pixels below this intensity (range 0-100)
+     * @param options.velocityMatchThreshold {number=.2} Range 0 -1
      */
     constructor(options = {}) {
         if (!options.output) {
@@ -66,6 +67,7 @@ class Horizon {
         this.cropTolerance = options.cropTolerance || 0.2;
         this.velocityScaleMax = options.velocityScaleMax || 127;
         this.minUnscaledVelocity = options.minUnscaledVelocity || .2;
+        this.velocityMatchThreshold = options.velocityMatchThreshold || .2;
     }
 
     static sum(subject) {
@@ -178,7 +180,7 @@ class Horizon {
 
         this.px = [...new Array(this.staveX)].map(x => new Array(this.staveY));
         this.colours = [...new Array(this.staveX)].map(x => new Array(this.staveY));
-        this.averageColours = new Array(this.staveX);
+        this.averageColourChords = new Array(this.staveX);
 
         this.colourImage = this.img.clone();
 
@@ -333,18 +335,21 @@ class Horizon {
         }
     }
 
+    // Look ahead for same (within a threshold) note, 
+    // remote it, adding its duration to the initial note
     _sustainAdjacentChords() {
-        for (let x = 1; x < this.staveX; x++) {
-            // Search along x for same notes, and extend the first
-            const startX = x;
-            while (x < this.staveX - 1 &&
-                this.averageColours[x] && this.averageColours[x - 1] &&
-                this._sameChord(this.averageColours[x], this.averageColours[x + 1])
+        for (let x = 1; x < this.averageColourChords.length; x++) {
+            const noteToSustain = x - 1;
+            while (
+                this.averageColourChords[noteToSustain] &&
+                this.averageColourChords[x] &&
+                this._sameNote(
+                    this.averageColourChords[noteToSustain],
+                    this.averageColourChords[x]
+                )
             ) {
-                this.averageColours[x].duration += 1;
-                if (x > startX) {
-                    this.averageColours[x] = null;
-                }
+                this.averageColourChords[noteToSustain].duration += this.averageColourChords[x].duration;
+                delete this.averageColourChords[x];
                 x++;
             }
         }
@@ -353,18 +358,15 @@ class Horizon {
     // Proc durations: sustain notes of same pitch and velocity
     _sustainAdjacentNotes(subject) {
         for (let y = 0; y < this.staveY; y++) {
-            for (let x = 0; x < this.staveX; x++) {
+            for (let x = 1; x < this.staveX; x++) {
                 // Search along x for same notes, and extend the first
-                const startX = x;
-                while (x < this.staveX - 1 &&
-                    subject[x] &&
-                    subject[x][y] && subject[x + 1][y] &&
-                    this._sameNote(subject[x][y], subject[x + 1][y])
+                const noteToSustain = x - 1;
+                while (
+                    subject[x] && subject[x][y] &&
+                    this._sameNote(subject[noteToSustain][y], subject[x][y])
                 ) {
-                    subject[startX][y].duration += 1;
-                    if (x > startX) {
-                        delete subject[x][y];
-                    }
+                    subject[noteToSustain][y].duration += subject[x][y].duration
+                    delete subject[x][y];
                     x++;
                 }
             }
@@ -372,17 +374,8 @@ class Horizon {
     }
 
     _sameNote(a, b) {
-        return a.velocity === b.velocity &&
-            a.pitch instanceof Array ?
-            a.pitch.join() === b.pitch.join() : a.pitch === b.pitch;
-    }
-
-    _sameChord(a, b) {
-        let match = false;
-        for (let i = 0; i < a.length; i++) {
-            match = this._sameNote(a[i], b[i]);
-        }
-        return match;
+        return Math.abs(a.velocity - b.velocity) < this.velocityMatchThreshold &&
+            a.pitch instanceof Array ? a.pitch.join() === b.pitch.join() : a.pitch === b.pitch
     }
 
     _formatDuration(note) {
@@ -440,8 +433,8 @@ class Horizon {
         if (!this.highestNotes || Horizon.sum(this.highestNotes) === 0) {
             throw new Error('No highestNotes to save.');
         }
-        if (!this.averageColours || Horizon.sum(this.averageColours) === 0) {
-            throw new Error('No averageColours to save.');
+        if (!this.averageColourChords || Horizon.sum(this.averageColourChords) === 0) {
+            throw new Error('No averageColourChords to save.');
         }
 
         this.checkPitches(this.highestNotes);
@@ -451,8 +444,8 @@ class Horizon {
             colours: new MidiWriter.Track(),
         };
 
-        tracks.highest.addTrackName('Highest');
-        tracks.colours.addTrackName('Colours');
+        tracks.highest.addTrackName('Highest ' + this._inputFilename);
+        tracks.colours.addTrackName('Colours ' + this._inputFilename);
         tracks.highest.setTimeSignature(1, 1, this.timeFactor);
         tracks.colours.setTimeSignature(1, 1);
 
@@ -469,14 +462,14 @@ class Horizon {
                     })
                 );
             }
-            if (this.averageColours[x]) {
-                this._formatDuration(this.averageColours[x]);
+            if (this.averageColourChords[x]) {
+                this._formatDuration(this.averageColourChords[x]);
                 tracks.colours.addEvent(
                     new MidiWriter.NoteEvent(
                         {
-                            velocity: this.averageColours[x].velocity,
-                            duration: this.averageColours[x].duration,
-                            pitch: this.averageColours[x].pitch,
+                            velocity: this.averageColourChords[x].velocity,
+                            duration: this.averageColourChords[x].duration,
+                            pitch: this.averageColourChords[x].pitch,
                             startTick
                         }
                     )
@@ -495,41 +488,42 @@ class Horizon {
     }
 
     _processColours() {
+        this.logger.trace('Enter _processColours');
         if (!this.colours || Horizon.sum(this.colours) === 0) {
             throw new Error('No highestNotes to save.');
         }
 
         for (let x = 0; x < this.staveX; x++) {
-            this.averageColours[x] = { colour: 0, velocity: 0, duration: 1, octave: 0 };
+            this.averageColourChords[x] = { colour: 0, velocity: 0, duration: 1, octave: 0 };
 
             for (let y = 0; y < this.staveY; y++) {
-                this.averageColours[x].colour += this.colours[x][y][HUE];
-                this.averageColours[x].velocity += this.colours[x][y][LIGHTNESS];
-                this.averageColours[x].octave += 1 - this.colours[x][y][SATURATION];
+                this.averageColourChords[x].colour += this.colours[x][y][HUE];
+                this.averageColourChords[x].velocity += this.colours[x][y][LIGHTNESS];
+                this.averageColourChords[x].octave += 1 - this.colours[x][y][SATURATION];
             }
 
-            this.averageColours[x].colour /= this.staveY;
-            this.averageColours[x].velocity /= this.staveY;
-            this.averageColours[x].octave = Math.floor(
-                this.averageColours[x].octave / (this.staveY / this.scale.length)
+            this.averageColourChords[x].colour /= this.staveY;
+            this.averageColourChords[x].velocity /= this.staveY;
+            this.averageColourChords[x].octave = Math.floor(
+                this.averageColourChords[x].octave / (this.staveY / this.scale.length)
             );
-            this._scaleVelocity(this.averageColours[x].velocity);
+            this._scaleVelocity(this.averageColourChords[x].velocity);
 
             const chord = this._colour2chordName(
-                this.averageColours[x].colour,
-                this.averageColours[x].octave
+                this.averageColourChords[x].colour,
+                this.averageColourChords[x].octave
             );
-            this.averageColours[x].pitch = Chord.notes(chord).map(
-                note => note + this.averageColours[x].octave
+            this.averageColourChords[x].pitch = Chord.notes(chord).map(
+                note => note + this.averageColourChords[x].octave
             );
 
             if (chord === undefined) {
-                console.warn(x, this.averageColours[x]);
+                console.warn(x, this.averageColourChords[x]);
                 console.warn(x, this.highestNotes[x], chord, notes);
                 throw new Error('No chord at ' + x);
             }
 
-            if (this.averageColours[x].pitch === undefined) {
+            if (this.averageColourChords[x].pitch === undefined) {
                 throw new Error();
             }
         }

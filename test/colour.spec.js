@@ -52,10 +52,10 @@ describe('color', () => {
         h._processColours();
 
         expect(h.highestNotes.length).to.be.greaterThan(0);
-        expect(h.averageColours.length).to.be.greaterThan(0);
+        expect(h.averageColourChords.length).to.be.greaterThan(0);
 
-        expect(h.averageColours[0].pitch).to.be.an.instanceOf(Array);
-        expect(h.averageColours[0].pitch).to.have.length.greaterThan(0);
+        expect(h.averageColourChords[0].pitch).to.be.an.instanceOf(Array);
+        expect(h.averageColourChords[0].pitch).to.have.length.greaterThan(0);
 
         h._saveColouredHighestNotes();
 
