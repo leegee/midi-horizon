@@ -16,7 +16,7 @@ describe('highest notes', () => {
             input: './test/images/dubai.jpg',
             output: './test/output/',
             x: 100,
-            minVelocityPostScale: 20,
+            minUnscaledVelocity: .2,
             logger
         });
 

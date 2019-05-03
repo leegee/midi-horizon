@@ -37,7 +37,7 @@ class Horizon {
      * @param options.contrast {number=0.5} Range 0 - 1.
      * @param options.cropTolerance {number} Range 0 - 1.
      * @param options.velocityScaleMax {number} Scale velocities to smaller ceilings to remove precision/steps.
-     * @param options.minVelocityPostScale {number=0} Ignore pixels below this intensity (range 0-100)
+     * @param options.minUnscaledVelocity {number=0} Ignore pixels below this intensity (range 0-100)
      */
     constructor(options = {}) {
         if (!options.output) {
@@ -65,7 +65,7 @@ class Horizon {
         this.timeFactor = options.timeFactor || 24;
         this.cropTolerance = options.cropTolerance || 0.2;
         this.velocityScaleMax = options.velocityScaleMax || 127;
-        this.minVelocityPostScale = options.minVelocityPostScale || 20;
+        this.minUnscaledVelocity = options.minUnscaledVelocity || .2;
     }
 
     static sum(subject) {
@@ -281,20 +281,26 @@ class Horizon {
 
     // forget friends
     _getHighestNotes(wantFriends = false) {
+        let highestVfound = 0;
         this.highestNotes = new Array(this.staveX);
         this.logger.trace(`Get highest notes, with friends? ${wantFriends}`);
 
         for (let x = 0; x < this.staveX; x++) {
             for (let y = this.staveY - 1; y >= 0; y--) {
-                // console.log(x, y, this.notes[x][y]);
-                let neighboured = wantFriends ? this.notes[x][y - 1] : true;
-                // console.log( x, y, this.notes[x][y], this.px[x][y] );
-                if (this.notes[x][y] && neighboured
-                    && this.notes[x][y].velocity > this.minVelocityPostScale
-                ) {
-                    // Require the note to have another below to avoid noise:
-                    this.highestNotes[x] = this.notes[x][y];
-                    break;
+
+                if (this.notes[x][y]) {
+
+                    if (highestVfound > this.minUnscaledVelocity) {
+                        highestVfound = this.minUnscaledVelocity;
+                    }
+
+                    let neighboured = wantFriends ? this.notes[x][y - 1] : true;
+                    if (neighboured && this.notes[x][y].velocity > this.minUnscaledVelocity
+                    ) {
+                        // Require the note to have another below to avoid noise:
+                        this.highestNotes[x] = this.notes[x][y];
+                        break;
+                    }
                 }
             }
         }
@@ -305,7 +311,8 @@ class Horizon {
                 this.logger.trace('Trying again without asking for friends.');
                 this._getHighestNotes(false);
             } else {
-                throw new Error('Found no highest notes, even lonely ones.');
+                console.error(this.notes);
+                throw new Error('Found no highest notes, even lonely ones: highest found was ' + highestVfound + ' limit is ' + this.minUnscaledVelocity);
             }
         }
 
@@ -326,13 +333,13 @@ class Horizon {
         }
     }
 
-    _sustainAdjacentColours() {
+    _sustainAdjacentChords() {
         for (let x = 1; x < this.staveX; x++) {
             // Search along x for same notes, and extend the first
             const startX = x;
             while (x < this.staveX - 1 &&
                 this.averageColours[x] && this.averageColours[x - 1] &&
-                this._sameNote(this.averageColours[x], this.averageColours[x + 1])
+                this._sameChord(this.averageColours[x], this.averageColours[x + 1])
             ) {
                 this.averageColours[x].duration += 1;
                 if (x > startX) {
@@ -365,9 +372,17 @@ class Horizon {
     }
 
     _sameNote(a, b) {
-        const match = a.velocity === b.velocity &&
+        return a.velocity === b.velocity &&
             a.pitch instanceof Array ?
             a.pitch.join() === b.pitch.join() : a.pitch === b.pitch;
+    }
+
+    _sameChord(a, b) {
+        let match = false;
+        for (let i = 0; i < a.length; i++) {
+            match = this._sameNote(a[i], b[i]);
+        }
+        return match;
     }
 
     _formatDuration(note) {
@@ -435,6 +450,11 @@ class Horizon {
             highest: new MidiWriter.Track(),
             colours: new MidiWriter.Track(),
         };
+
+        tracks.highest.addTrackName('Highest');
+        tracks.colours.addTrackName('Colours');
+        tracks.highest.setTimeSignature(1, 1, this.timeFactor);
+        tracks.colours.setTimeSignature(1, 1);
 
         for (let x = 0; x < this.staveX; x++) {
             const startTick = 1 + (x * this.timeFactor);
@@ -514,7 +534,7 @@ class Horizon {
             }
         }
 
-        this._sustainAdjacentColours(this.averageColours);
+        this._sustainAdjacentChords();
     }
 
     _colour2chordName(colour, octave = 3) {
