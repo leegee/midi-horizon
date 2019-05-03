@@ -22,6 +22,19 @@ const HUE = 0;
 const SATURATION = 1;
 const LIGHTNESS = 2;
 
+const DEFAULT_OPTIONS = {
+    contrast: 0.3,
+    transposeOctave: 1,
+    timeFactor: 24,
+    cropTolerance: 0.2,
+    velocityScaleMax: 127,
+    minUnscaledVelocity: 0.2,
+    velocityMatchThreshold: 0.2,
+    scaleName: 'pentatonic',
+    staveX: null,
+    logger: log4js.getLogger()
+};
+
 class Horizon {
     /**
      * 
@@ -31,7 +44,7 @@ class Horizon {
      * @param options.octaves {number=7} Number of octaves to use
      * @param options.scale {Array<string>} A, B, C, etc
      * @param options.scaleName {string=pentatonic} Invariable atm
-     * @param options.x  {number?} Number of time slots (beats?)
+     * @param options.staveX  {number?} Number of time slots (beats?)
      * @param options.timeFactor {number} Multiplier for MIDI ticks.
      * @param options.transposeOctave {number=2} 
      * @param options.contrast {number=0.5} Range 0 - 1.
@@ -40,34 +53,19 @@ class Horizon {
      * @param options.minUnscaledVelocity {number=0} Ignore pixels below this intensity (range 0-100)
      * @param options.velocityMatchThreshold {number=.2} Range 0 -1
      */
-    constructor(options = {}) {
-        if (!options.output) {
-            throw new TypeError('output dir not specified.');
-        }
-        if (!options.input) {
-            throw new TypeError('input file not specified.');
-        }
-        if (!fs.existsSync(options.input)) {
-            throw new TypeError('input file does not exist at ' + this.input);
-        }
-
-        this.logger = options.logger || log4js.getLogger();
-
+    constructor(options) {
         this._setPaths(options);
 
-        this.contrast = options.contrast || 0.5;
-        this.transposeOctave = options.transposeOctave || 1;
+        Object.keys(DEFAULT_OPTIONS).forEach(
+            key => {
+                this[key] = options.hasOwnProperty(key) ? options[key] : DEFAULT_OPTIONS[key]
+            }
+        );
+
         this.octaves = (options.octaves || MAX_OCTAVES) + this.transposeOctave;
-        this.scaleName = options.scaleName || 'pentatonic';
         this.scale = SCALES[this.scaleName];
         this.chords = CHORDS[this.scaleName];
-        this.staveX = options.x || null;
         this.staveY = MAX_OCTAVES * this.scale.length;
-        this.timeFactor = options.timeFactor || 24;
-        this.cropTolerance = options.cropTolerance || 0.2;
-        this.velocityScaleMax = options.velocityScaleMax || 127;
-        this.minUnscaledVelocity = options.minUnscaledVelocity || .2;
-        this.velocityMatchThreshold = options.velocityMatchThreshold || .2;
     }
 
     static sum(subject) {
@@ -154,6 +152,7 @@ class Horizon {
     do() {
         this._getPixels();
         this._linear();
+        this._sustainAdjacentNotes(this.notes);
         this._saveAsOneTrack();
     }
 
@@ -161,6 +160,7 @@ class Horizon {
         this._getPixels();
         this._linear();
         this._getHighestNotes();
+        this._sustainAdjacentNotes(this.highestNotes);
         this._saveHighestNotes();
     }
 
@@ -168,6 +168,7 @@ class Horizon {
         this._getPixels();
         this._linear();
         this._getHighestNotes();
+        this._sustainAdjacentNotes(this.highestNotes);
         this._processColours();
         this._saveColouredHighestNotes();
     }
@@ -229,6 +230,16 @@ class Horizon {
     }
 
     _setPaths(options) {
+        if (!options.output) {
+            throw new TypeError('output dir not specified.');
+        }
+        if (!options.input) {
+            throw new TypeError('input file not specified.');
+        }
+        if (!fs.existsSync(options.input)) {
+            throw new TypeError('input file does not exist at ' + this.input);
+        }
+
         this.input = path.resolve(options.input);
         this.output = path.resolve(options.output);
         this._inputFilename = this.input.match(/([^\\\/]+)[\\\/]*$/)[1]; // path.posix.basename(this.input);
@@ -277,48 +288,27 @@ class Horizon {
                 };
             }
         }
-
-        this._sustainAdjacentNotes(this.notes);
     }
 
     // forget friends
-    _getHighestNotes(wantFriends = false) {
-        let highestVfound = 0;
+    _getHighestNotes() {
         this.highestNotes = new Array(this.staveX);
-        this.logger.trace(`Get highest notes, with friends? ${wantFriends}`);
 
         for (let x = 0; x < this.staveX; x++) {
             for (let y = this.staveY - 1; y >= 0; y--) {
-
-                if (this.notes[x][y]) {
-
-                    if (highestVfound > this.minUnscaledVelocity) {
-                        highestVfound = this.minUnscaledVelocity;
-                    }
-
-                    let neighboured = wantFriends ? this.notes[x][y - 1] : true;
-                    if (neighboured && this.notes[x][y].velocity > this.minUnscaledVelocity
-                    ) {
-                        // Require the note to have another below to avoid noise:
-                        this.highestNotes[x] = this.notes[x][y];
-                        break;
-                    }
+                if (this.notes[x][y]
+                    && this.notes[x][y].velocity >= this.minUnscaledVelocity) {
+                    // Require the note to have another below to avoid noise:
+                    this.highestNotes[x] = this.notes[x][y];
+                    break;
                 }
             }
         }
 
         if (Horizon.sum(this.highestNotes) === 0) {
-            this.logger.trace('Found no highest notes');
-            if (wantFriends) {
-                this.logger.trace('Trying again without asking for friends.');
-                this._getHighestNotes(false);
-            } else {
-                console.error(this.notes);
-                throw new Error('Found no highest notes, even lonely ones: highest found was ' + highestVfound + ' limit is ' + this.minUnscaledVelocity);
-            }
+            this.logger.trace('Found no highest notes', this.notes);
+            throw new Error('Found no highest notes! minUnscaledVelocity is ' + this.minUnscaledVelocity);
         }
-
-        this._sustainAdjacentNotes(this.highestNotes);
     }
 
     _getNoteDensities() {
