@@ -64,7 +64,7 @@ class Horizon {
         this.staveY = MAX_OCTAVES * this.scale.length;
         this.timeFactor = options.timeFactor || 24;
         this.cropTolerance = options.cropTolerance || 0.2;
-        this.velocityScaleMax = 127;
+        this.velocityScaleMax = options.velocityScaleMax || 127;
         this.minVelocityPostScale = options.minVelocityPostScale || 20;
     }
 
@@ -247,6 +247,12 @@ class Horizon {
         }
     }
 
+    _scalePitch(y) {
+        const pitch = y % this.scale.length;
+        const octave = Math.floor(y / this.scale.length) + this.transposeOctave;
+        return this.scale[pitch] + octave;
+    }
+
     _linear() {
         this.notes = [...new Array(this.staveX)].map(x => new Array(this.staveY));
         for (let x = 0; x < this.staveX; x++) {
@@ -254,14 +260,9 @@ class Horizon {
                 if (!this.px[x][y]) {
                     throw new Error('no pixel at ' + x + ',' + y);
                 }
-                // const velocity = this.scaleVelocity( this.colours[x][y][LIGHTNESS]);
-                const velocity = this.scaleVelocity(this.px[x][y]);
-                // if (velocity > this.minVelocityPostScale) {
-                const pitch = y % this.scale.length;
-                const octave = Math.floor(y / this.scale.length) + this.transposeOctave;
                 this.notes[x][y] = {
-                    pitch: this.scale[pitch] + octave,
-                    velocity: velocity,
+                    pitch: this._scalePitch(y),
+                    velocity: this.scaleVelocity(this.px[x][y]),
                     duration: 1,
                     startTick: x * this.timeFactor
                 };
@@ -345,7 +346,7 @@ class Horizon {
                 // Search along x for same notes, and extend the first
                 const startX = x;
                 while (x < this.staveX - 1 &&
-                    subject[x] && 
+                    subject[x] &&
                     subject[x][y] && subject[x + 1][y] &&
                     this._sameNote(subject[x][y], subject[x + 1][y])
                 ) {
@@ -515,7 +516,7 @@ class Horizon {
     checkPitches(notes) {
         let tooHigh = false;
         for (let x = 0; x < notes.length; x++) {
-            if (Number(notes[x].pitch.substr(1, 1)) > 7) {
+            if (notes[x] && Number(notes[x].pitch.substr(1, 1)) > 7) {
                 tooHigh = true;
             }
         }
