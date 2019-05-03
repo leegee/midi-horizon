@@ -246,7 +246,7 @@ class Horizon {
             throw new RangeError(`Called with NaN: ${+ pixelValue}`);
         }
         // return Math.floor(((pixelValue) / Horizon.MAX_VELOCITY_IN_PIXEL) * this.velocityScaleMax);
-        return pixelValue * this.velocityScaleMax;
+        return Math.floor(pixelValue * this.velocityScaleMax);
     }
 
     _scaleColour(lightness) {
