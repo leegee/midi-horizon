@@ -94,9 +94,10 @@ describe('highest notes', () => {
 
         let pitchCount = {};
         h.highestNotes.forEach(note => {
-            pitchCount[ note.pitch ] = pitchCount[ note.pitch ]  ? pitchCount[ note.pitch ] +1 : 0;
+            pitchCount[note.pitch] = pitchCount[note.pitch] ? pitchCount[note.pitch] + 1 : 1;
         });
-        console.log(pitchCount);
+        // console.log(pitchCount);
+        expect(pitchCount).to.be.greaterThan(5); // XXX Arb fitness
     });
 });
 

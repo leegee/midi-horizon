@@ -23,7 +23,7 @@ const SATURATION = 1;
 const LIGHTNESS = 2;
 
 const DEFAULT_OPTIONS = {
-    contrast: 0.3,
+    contrast: 0.5,
     transposeOctave: 1,
     timeFactor: 24,
     cropTolerance: 0.2,
