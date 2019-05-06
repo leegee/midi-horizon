@@ -6,6 +6,24 @@ const Jimp = require('jimp');
 const MidiWriter = require('midi-writer-js');
 const Chord = require("tonal-chord")
 
+const Bresenham_Points = [
+    [3, 0],
+    [0, 3],
+    [-3, 0],
+    [0, -3],
+    [3, 1],
+    [1, 3],
+    [-3, 1],
+    [-1, 3],
+    [-3, -1],
+    [-1, -3],
+    [1, -3],
+    [2, 2],
+    [-2, 2],
+    [2, -2],
+];
+
+
 const SCALES = {
     pentatonic: ["A", "C", "D", "E", "G"],
     major: ["C", "D", "E", "F", "G", "A", "B"]
@@ -34,7 +52,8 @@ const DEFAULT_OPTIONS = {
     velocityMatchThreshold: 0.2,
     scaleName: 'pentatonic',
     staveX: null,
-    logger: log4js.getLogger()
+    logger: log4js.getLogger(),
+    bresenhamPointsThreshold: 0.5
 };
 
 class Horizon {
@@ -49,11 +68,12 @@ class Horizon {
      * @param options.staveX  {number?} Number of time slots (beats?)
      * @param options.timeFactor {number} Multiplier for MIDI ticks.
      * @param options.transposeOctave {number=2} 
-     * @param options.contrast {number=0.5} Range 0 - 1.
-     * @param options.cropTolerance {number} Range 0 - 1.
+     * @param options.contrast {number=0.5} Range 0 to 1.
+     * @param options.cropTolerance {number} Range 0 to 1.
      * @param options.velocityScaleMax {number} Scale velocities to smaller ceilings to remove precision/steps.
      * @param options.minUnscaledVelocity {number=0} Ignore pixels below this intensity (range 0-100)
-     * @param options.velocityMatchThreshold {number=.2} Range 0 -1
+     * @param options.velocityMatchThreshold {number=.2} Range 0 to 1
+     * @param options.bresenhamPointsThreshold {number=0.5} Range 0 to 1
      */
     constructor(options) {
         this._setPaths(options);
@@ -266,7 +286,7 @@ class Horizon {
 
     _normaliseColour(lightness) {
         if (lightness > 1) {
-            throw new RangeError('lightness ' + lightness + ' should range 0 - 1.');
+            throw new RangeError('lightness ' + lightness + ' should range 0 to 1.');
         }
         return Math.floor(lightness * this.chords.length);
     }
@@ -502,7 +522,7 @@ class Horizon {
                 (this.averageColourChords[x].octave / (this.staveY / this.scale.length)) + 1
             );
             this.averageColourChords[x].velocity = this._normaliseVelocity(this.averageColourChords[x].velocity);
-            
+
             const chord = this._colour2chordName(
                 this.averageColourChords[x].colour,
                 this.averageColourChords[x].octave
@@ -547,6 +567,27 @@ class Horizon {
             });
         }
     }
+
+    _fastShapes() {
+        this.corners = [...new Array(this.staveX)].map(x => new Array(this.staveY))
+
+        for (let y = 0; y <= this.staveY; y++) {
+            for (let x = 0; x <= this.staveY; x++) {
+                this.corners[x][y] = this._testBresenhamPoints(x, y);
+            }
+        }
+    }
+
+    // https://en.wikipedia.org/wiki/Features_from_accelerated_segment_test
+    _testBresenhamPoints(x, y) {
+        let count = 0;
+        Bresenham_Points.forEach(xy => {
+            count += Math.abs(this.px[x][y] - this.px[x + xy[0]][y + xy[1]])
+                > h.bresenhamPointsThreshold;
+        });
+        return count;
+    }
+
 };
 
 Horizon.MAX_VELOCITY_IN_PIXEL = 1; // 255 if using rgb
