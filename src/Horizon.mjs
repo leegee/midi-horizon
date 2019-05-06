@@ -203,10 +203,6 @@ class Horizon {
             this.logger.warn('Set staveX to ', this.img.bitmap.width);
         }
 
-        this.px = [...new Array(this.staveX)].map(x => new Array(this.staveY));
-        this.colours = [...new Array(this.staveX)].map(x => new Array(this.staveY));
-        this.averageColourChords = new Array(this.staveX);
-
         this.colourImage = this.img.clone();
 
         await this.img.contrast(this.contrast);
@@ -233,18 +229,19 @@ class Horizon {
     }
 
     _getPixels() {
-        for (let x = 0; x < this.staveX; x++) {
-            for (let y = 0; y < this.staveY; y++) {
-                const atY = this.staveY - 1 - y;
+        this.px = [...new Array(this.staveX)].map(x => new Array(this.staveY));
+        this.colours = [...new Array(this.staveX)].map(x => new Array(this.staveY));
+
+        for (let x = 0; x < this.img.bitmap.width; x++) {
+            for (let y = 0; y < this.img.bitmap.height; y++) {
+                const atY = this.staveY - y;
                 this.px[x][atY] = Jimp.intToRGBA(
-                    this.img.getPixelColor(x + 1, y + 1)
+                    this.img.getPixelColor(x, y)
                 ).r / 255;
-                // console.log(this.px[x][atY], Jimp.intToRGBA(
-                //     this.img.getPixelColor(x + 1, y + 1)
-                // ));
+                // console.log(this.px[x][atY], Jimp.intToRGBA( this.img.getPixelColor(x , y ) ));
 
                 const rgb = Jimp.intToRGBA(
-                    this.colourImage.getPixelColor(x + 1, y + 1)
+                    this.colourImage.getPixelColor(x, y)
                 );
                 const hsl = Horizon.rgb2hsl(rgb.r, rgb.g, rgb.b);
                 // this.px[x][this.staveY - 1 - y] = rgb.r;
@@ -507,6 +504,8 @@ class Horizon {
             throw new Error('No highestNotes to save.');
         }
 
+        this.averageColourChords = new Array(this.staveX);
+
         for (let x = 0; x < this.staveX; x++) {
             this.averageColourChords[x] = { colour: 0, velocity: 0, duration: 1, octave: 0 };
 
@@ -587,6 +586,55 @@ class Horizon {
         });
         return count;
     }
+
+    async loadOptimalContrast() {
+        const bwThreshold = 0.5;
+        if (bwThreshold > 1) {
+            throw new RangeError('threshold should be between 0 and 1.');
+        }
+        bwThreshold *= 255;
+
+        const origImg = await Jimp.read(this.input);
+        await this._resize(origImg);
+
+        if (this.staveX === null) {
+            this.staveX = this.img.bitmap.width;
+        }
+
+        const target = this.staveX * this.staveY;
+
+        for (let contrastLevel = 0.2; contrastLevel < 0.8; contrastLevel += 0.2) {
+            const img = origImg.clone();
+
+            await img.contrast(contrastLevel).greyscale();
+
+            this._getPixels();
+
+            const totalAdjacentPoints = this._countAdjacentPoints(0.5);
+
+            console.log(totalAdjacentPoints);
+            console.log('-------------------');
+        }
+    };
+
+    _countAdjacentPoints(threshold) {
+        let aboveThreshold = 0;
+        let counted = 0;
+        for (let x = 0; x < this.staveX; x++) {
+            for (let y = 0; y < this.staveY; y++) {
+                for (let px = x - 1; px <= x + 1; px++) {
+                    for (let py = y - 1; py <= y + 1; py++) {
+                        if (px > 0 && px < this.staveX && py > 0 && py < this.staveY) {
+                            aboveThreshold += this.px[px][py] >= threshold ? 1 : 0;
+                            counted++;
+                        }
+                    }
+                }
+            }
+        }
+        this.logger.trace('_countAdjacentPoints', aboveThreshold / counted, ' = ' + aboveThreshold + '/' + counted);
+        return aboveThreshold / counted;
+    };
 
 };
 
