@@ -6,23 +6,14 @@ const logger = require('./Logger-test.mjs');
 const expect = chai.expect;
 chai.use(require('chai-fs'));
 
-describe('color', () => {
+xdescribe('color - details of la', () => {
     const h = new Horizon({
         input: './test/images/la.jpg',
         output: './test/output/',
-        logger: logger
+        logger: logger,
+        contrast: 0.8
     });
 
-    it('loads a colour image', async () => {
-        await h.load();
-        expect(h.colourImage).not.to.be.undefined;
-
-        h._getPixels();
-        expect(h.colours[0][0]).to.be.ok;
-        h._linear();
-        expect(h.notes[0][0]).to.be.ok;
-
-    });
 
     it('note2chord', () => {
         expect(h.chords).to.be.instanceOf(Array);
@@ -37,15 +28,19 @@ describe('color', () => {
         expect(h._colour2chordName(0.9814814814814814)).to.equal('G');
     });
 
+    it('loads a colour image', async () => {
+        await h.load();
+        expect(h.colourImage).not.to.be.undefined;
+
+        h._getPixels();
+        expect(h.colours[0][0]).to.be.ok;
+        h._linear();
+        expect(h.notes[0][0]).to.be.ok;
+
+    });
+
     it('gets a colour pixel', () => {
         h._getHighestNotes();
-        expect(h.highestNotes.length).to.be.greaterThan(0);
-
-        // expect(h.highestNotes[0]).to.deep.equal({
-        //     note: { pitch: 'G8', velocity: 32, duration: 5, startTick: 0 },
-        //     colour: 0
-        // });
-
         expect(h.highestNotes.length).to.be.greaterThan(0);
         expect(h.colours[0][0]).not.to.be.undefined;
 
@@ -64,7 +59,30 @@ describe('color', () => {
         expect(
             h.outputMidiPath
         ).to.be.a.file(h.outputMidiPath);
-    });
 
+
+        let pitchCount = {};
+        h.highestNotes.forEach(note => {
+            pitchCount[note.pitch] = pitchCount[note.pitch] ? pitchCount[note.pitch] + 1 : 1;
+        });
+        // console.log(pitchCount);
+        expect(Object.keys(pitchCount).length).to.be.greaterThan(5); // XXX Arb fitness
+    });
 });
 
+describe('does more files', () => {
+    const imageNames = ['leeds', 'liverpool', 'hills']
+    imageNames.forEach(name => {
+        it(name, async () => {
+            logger.level = 'trace';
+            const h = new Horizon({
+                input: './test/images/' + name + '.jpg',
+                output: './test/output/',
+                scale: 'major',
+                logger
+            });
+            await h.load();
+            h.doColours();
+        }).timeout(3000);
+    });
+});

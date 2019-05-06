@@ -7,11 +7,13 @@ const MidiWriter = require('midi-writer-js');
 const Chord = require("tonal-chord")
 
 const SCALES = {
-    pentatonic: ["A", "C", "D", "E", "G"]
+    pentatonic: ["A", "C", "D", "E", "G"],
+    major: ["C", "D", "E", "F", "G", "A", "B"]
 };
 
 const CHORDS = {
-    pentatonic: ["Am", "C", "Dm", "E", "G"]
+    pentatonic: ["Am", "C", "Dm", "E", "G"],
+    major: ["C", "Dm", "Em", "F", "G", "Am", "Bdim"]
 };
 
 const MAX_OCTAVES = 8;
@@ -66,6 +68,7 @@ class Horizon {
         this.scale = SCALES[this.scaleName];
         this.chords = CHORDS[this.scaleName];
         this.staveY = MAX_OCTAVES * this.scale.length;
+        this.img = null;
     }
 
     static sum(subject) {
@@ -177,6 +180,7 @@ class Horizon {
         this.img = await Jimp.read(this.input);
         if (this.staveX === null) {
             this.staveX = this.img.bitmap.width;
+            this.logger.warn('Set staveX to ', this.img.bitmap.width);
         }
 
         this.px = [...new Array(this.staveX)].map(x => new Array(this.staveY));
@@ -249,7 +253,7 @@ class Horizon {
         this.outputMidiPath = path.join(this._outputDir, this._inputFilename + '.mid');
     }
 
-    _scaleVelocity(pixelValue) {
+    _normaliseVelocity(pixelValue) {
         if (pixelValue > Horizon.MAX_VELOCITY_IN_PIXEL) {
             throw new RangeError('pixelValue ' + pixelValue + ' should range 0 ' + Horizon.MAX_VELOCITY_IN_PIXEL);
         }
@@ -260,14 +264,14 @@ class Horizon {
         return Math.floor(pixelValue * this.velocityScaleMax);
     }
 
-    _scaleColour(lightness) {
+    _normaliseColour(lightness) {
         if (lightness > 1) {
             throw new RangeError('lightness ' + lightness + ' should range 0 - 1.');
         }
         return Math.floor(lightness * this.chords.length);
     }
 
-    _scalePitch(y) {
+    _normalisePitch(y) {
         const pitch = y % this.scale.length;
         const octave = Math.floor(y / this.scale.length) + this.transposeOctave;
         return this.scale[pitch] + octave;
@@ -281,8 +285,8 @@ class Horizon {
                     throw new Error('no pixel at ' + x + ',' + y);
                 }
                 this.notes[x][y] = {
-                    pitch: this._scalePitch(y),
-                    velocity: this._scaleVelocity(this.px[x][y]),
+                    pitch: this._normalisePitch(y),
+                    velocity: this._normaliseVelocity(this.px[x][y]),
                     duration: 1,
                     startTick: x * this.timeFactor
                 };
@@ -293,12 +297,11 @@ class Horizon {
     // forget friends
     _getHighestNotes() {
         this.highestNotes = new Array(this.staveX);
-
         for (let x = 0; x < this.staveX; x++) {
             for (let y = this.staveY - 1; y >= 0; y--) {
                 if (this.notes[x][y]
-                    && this.notes[x][y].velocity >= this.minUnscaledVelocity) {
-                    // Require the note to have another below to avoid noise:
+                    && this.notes[x][y].velocity >= this.minUnscaledVelocity
+                ) {
                     this.highestNotes[x] = this.notes[x][y];
                     break;
                 }
@@ -454,6 +457,7 @@ class Horizon {
             }
             if (this.averageColourChords[x]) {
                 this._formatDuration(this.averageColourChords[x]);
+
                 tracks.colours.addEvent(
                     new MidiWriter.NoteEvent(
                         {
@@ -495,10 +499,10 @@ class Horizon {
             this.averageColourChords[x].colour /= this.staveY;
             this.averageColourChords[x].velocity /= this.staveY;
             this.averageColourChords[x].octave = Math.floor(
-                this.averageColourChords[x].octave / (this.staveY / this.scale.length)
+                (this.averageColourChords[x].octave / (this.staveY / this.scale.length)) + 1
             );
-            this._scaleVelocity(this.averageColourChords[x].velocity);
-
+            this.averageColourChords[x].velocity = this._normaliseVelocity(this.averageColourChords[x].velocity);
+            
             const chord = this._colour2chordName(
                 this.averageColourChords[x].colour,
                 this.averageColourChords[x].octave

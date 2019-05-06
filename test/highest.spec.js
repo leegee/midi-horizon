@@ -11,7 +11,7 @@ logger.level = 'trace';
 const h = new Horizon({
     input: './test/images/dubai.jpg',
     output: './test/output/',
-    x: 100,
+    // x: 100,
     logger
 });
 
@@ -55,7 +55,7 @@ describe('highest notes', () => {
         });
     });
 
-    it('run', async () => {
+    it('runs on dubai', async () => {
         const h = new Horizon({
             input: './test/images/dubai.jpg',
             output: './test/output/',
@@ -97,7 +97,53 @@ describe('highest notes', () => {
             pitchCount[note.pitch] = pitchCount[note.pitch] ? pitchCount[note.pitch] + 1 : 1;
         });
         // console.log(pitchCount);
-        expect(pitchCount).to.be.greaterThan(5); // XXX Arb fitness
+        expect(Object.keys(pitchCount).length).to.be.greaterThan(5); // XXX Arb fitness
     });
+
+
+    it('runs on leeds', async () => {
+        const h = new Horizon({
+            input: './test/images/leeds.jpg',
+            output: './test/output/',
+            x: 100,
+            logger
+        });
+
+        await h.load();
+        expect(h.img.bitmap.width).to.equal(h.staveX);
+        expect(h.img.bitmap.height).to.equal(h.staveY);
+
+        h._getPixels();
+        h._linear();
+        h._getHighestNotes();
+        h._saveHighestNotes();
+
+        expect(h.outputMidiPath, 'midi path').to.match(
+            /test[\\\/]output[\\\/]leeds\.jpg_hi\.mid$/
+        );
+
+        expect(
+            h.outputMidiPath
+        ).to.be.a.file(h.outputMidiPath);
+
+        expect(
+            h.highestNotes.some(
+                n => typeof n !== 'undefined'
+            )
+        ).to.be.true;
+
+        expect(
+            h.highestNotes.every(
+                n => h.highestNotes[0] && n && n.velocity === h.highestNotes[0].velocity
+            )
+        ).to.be.false;
+
+        let pitchCount = {};
+        h.highestNotes.forEach(note => {
+            pitchCount[note.pitch] = pitchCount[note.pitch] ? pitchCount[note.pitch] + 1 : 1;
+        });
+        // console.log(pitchCount);
+        expect(Object.keys(pitchCount).length).to.be.greaterThan(5); // XXX Arb fitness
+    });    
 });
 
