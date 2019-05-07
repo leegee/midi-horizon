@@ -154,23 +154,34 @@ class Horizon {
             throw new Error('Supply "input" arg as dir of files to parse.');
         }
 
-        fs.readdirSync(
+        options.logger.debug('Readdir ', dir);
+
+        const files = fs.readdirSync(
             dir,
             { withFileTypes: true }
-        ).forEach(async (entry) => {
-            if (entry.isFile() &&
-                entry.name.match(WANTED_IMAGE_FILES) &&
-                !entry.name.match(OUR_PROCESSED_IMAGE_FILE)
+        );
+
+        options.logger.debug(files);
+
+        for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+            if (files[fileIndex].isFile() &&
+                files[fileIndex].name.match(WANTED_IMAGE_FILES) &&
+                ! files[fileIndex].name.match(OUR_PROCESSED_IMAGE_FILE)
             ) {
+                options.logger.debug('Load', files[fileIndex]);
                 const h = new Horizon({
                     ...options,
-                    input: path.resolve(dir + '/' + entry.name),
-                    output: path.resolve(options.output + '/' + entry.name),
+                    input: path.resolve(dir + '/' + files[fileIndex].name),
+                    output: path.resolve(options.output + '/' + files[fileIndex].name),
                 });
-                h.load();
+                await h.load();
+                options.logger.debug('Loaded', h.input);
                 createdHorizons.push(h);
+            } else {
+                options.logger.debug('Ignore ', files[fileIndex].name, files[fileIndex].isFile());
             }
-        });
+        }
+        options.logger.debug('Return ', createdHorizons);
         return createdHorizons;
     }
 
@@ -202,7 +213,7 @@ class Horizon {
         this.img = await Jimp.read(this.input);
         if (this.staveX === null) {
             this.staveX = this.img.bitmap.width;
-            this.logger.warn('Set staveX to ', this.img.bitmap.width);
+            this.logger.trace('Set staveX to ', this.img.bitmap.width);
         }
 
         this.colourImage = this.img.clone();
