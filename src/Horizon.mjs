@@ -161,8 +161,6 @@ class Horizon {
             { withFileTypes: true }
         );
 
-        options.logger.debug(files);
-
         for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
             if (files[fileIndex].isFile() &&
                 files[fileIndex].name.match(WANTED_IMAGE_FILES) &&
@@ -181,7 +179,7 @@ class Horizon {
                 options.logger.debug('Ignore ', files[fileIndex].name, files[fileIndex].isFile());
             }
         }
-        options.logger.debug('Return ', createdHorizons);
+        options.logger.debug('Return ', createdHorizons.length, 'horizons');
         return createdHorizons;
     }
 
@@ -425,7 +423,7 @@ class Horizon {
         write.saveMIDI(
             this.outputMidiPath.replace(/\.mid$/, '')
         );
-        this.logger.info(this.outputMidiPath);
+        this.logger.info('Wrote ', this.outputMidiPath);
     }
 
     _saveHighestNotes() {
@@ -450,7 +448,7 @@ class Horizon {
             this.outputMidiPath.replace(/\.mid$/, '')
         );
 
-        this.logger.info(this.outputMidiPath);
+        this.logger.info('Wrote ', this.outputMidiPath);
     }
 
     _saveColouredHighestNotes() {
@@ -509,7 +507,7 @@ class Horizon {
         write.saveMIDI(
             this.outputMidiPath.replace(/\.mid$/, '')
         );
-        this.logger.info(this.outputMidiPath);
+        this.logger.info('Wrote ', this.outputMidiPath);
     }
 
     _processColours() {
@@ -626,8 +624,7 @@ class Horizon {
 
             const totalAdjacentPoints = this._countAdjacentPoints(0.5);
 
-            console.log(totalAdjacentPoints);
-            console.log('-------------------');
+            // console.log(totalAdjacentPoints);
         }
     };
 

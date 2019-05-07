@@ -1,3 +1,4 @@
+/*
 const MidiWriter = require('midi-writer-js');
 const track = new MidiWriter.Track();
 
@@ -13,5 +14,5 @@ track.addEvent(
     })
 );
 
-new MidiWriter.Writer(track)
-    .saveMIDI('temp');
+new MidiWriter.Writer(track).saveMIDI('temp');
+*/

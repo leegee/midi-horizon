@@ -38,7 +38,7 @@ describe('general', () => {
             expect(h._normaliseVelocity(Horizon.MAX_VELOCITY_IN_PIXEL), 'scaled 100%').to.equal(127);
         })
         it('50%', () => {
-            expect(h._normaliseVelocity(Horizon.MAX_VELOCITY_IN_PIXEL / 2), 'scaled 50%').to.equal(63.5);
+            expect(h._normaliseVelocity(Horizon.MAX_VELOCITY_IN_PIXEL / 2), 'scaled 50%').to.equal(63);
         })
 
         it('at 100', () => {
@@ -89,6 +89,6 @@ describe('general', () => {
             expect(
                 h.outputMidiPath
             ).to.be.a.file(h.outputMidiPath);
-        });
+        }).timeout(10000);
     });
 });

@@ -18,7 +18,7 @@ describe('jimp', () => {
                 }
             }
             expect(totalR).to.be.equal(totalRead/2);
-            console.log(totalR);
+            // console.log(totalR);
         });
     });
 });
