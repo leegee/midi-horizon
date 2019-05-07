@@ -53,7 +53,8 @@ const DEFAULT_OPTIONS = {
     scaleName: 'pentatonic',
     staveX: null,
     logger: log4js.getLogger(),
-    bresenhamPointsThreshold: 0.5
+    bresenhamPointsThreshold: 0.5,
+    blurPixels: 1
 };
 
 class Horizon {
@@ -74,6 +75,7 @@ class Horizon {
      * @param options.minUnscaledVelocity {number=0} Ignore pixels below this intensity (range 0-100)
      * @param options.velocityMatchThreshold {number=.2} Range 0 to 1
      * @param options.bresenhamPointsThreshold {number=0.5} Range 0 to 1
+     * @param options.blurPixels {number=1}
      */
     constructor(options) {
         this._setPaths(options);
@@ -205,8 +207,9 @@ class Horizon {
 
         this.colourImage = this.img.clone();
 
-        await this.img.contrast(this.contrast);
-        await this.img.greyscale();
+        await this.img.blur(this.blurPixels)
+            .contrast(this.contrast)
+            .greyscale();
 
         await Promise.all([
             this._resize(this.img),
@@ -234,7 +237,7 @@ class Horizon {
 
         for (let x = 0; x < this.img.bitmap.width; x++) {
             for (let y = 0; y < this.img.bitmap.height; y++) {
-                const atY = this.staveY - y;
+                const atY = this.staveY - 1 - y;
                 this.px[x][atY] = Jimp.intToRGBA(
                     this.img.getPixelColor(x, y)
                 ).r / 255;
@@ -618,22 +621,33 @@ class Horizon {
     };
 
     _countAdjacentPoints(threshold) {
-        let aboveThreshold = 0;
-        let counted = 0;
+        let totalAboveThreshold = 0;
+        let totalCounted = 0;
+
         for (let x = 0; x < this.staveX; x++) {
             for (let y = 0; y < this.staveY; y++) {
+
+                let counted = 0;
+                let aboveThreshold = 0;
+
                 for (let px = x - 1; px <= x + 1; px++) {
                     for (let py = y - 1; py <= y + 1; py++) {
-                        if (px > 0 && px < this.staveX && py > 0 && py < this.staveY) {
+                        if (px > 0 && px < this.staveX && py > 0 && py < this.staveY && px !== x && py !== y) {
+                            // totalAboveThreshold += this.px[px][py] >= threshold ? 1 : 0;
+                            totalCounted++;
                             aboveThreshold += this.px[px][py] >= threshold ? 1 : 0;
                             counted++;
                         }
                     }
                 }
+
+                // console.log(aboveThreshold, 'of', counted, aboveThreshold / counted, aboveThreshold / counted > threshold);
+                totalAboveThreshold += aboveThreshold / counted > threshold;
             }
         }
-        this.logger.trace('_countAdjacentPoints', aboveThreshold / counted, ' = ' + aboveThreshold + '/' + counted);
-        return aboveThreshold / counted;
+
+        this.logger.trace('_countAdjacentPoints', totalAboveThreshold / totalCounted, ' = ' + totalAboveThreshold + '/' + totalCounted);
+        return totalAboveThreshold / totalCounted;
     };
 
 };

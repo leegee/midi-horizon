@@ -6,7 +6,7 @@ const logger = require('./Logger-test.mjs');
 const expect = chai.expect;
 chai.use(require('chai-fs'));
 
-xdescribe('color - details of la', () => {
+describe('color - details of la', () => {
     const h = new Horizon({
         input: './test/images/la.jpg',
         output: './test/output/',
